@@ -1,0 +1,2 @@
+export type Resolution = "480p" | "720p" | "1080p" | "1440p" | "2K" | "4K" | "5K" | "8K";
+export const resolutionSettings = {"480p": { width: 854, height: 480 },"720p": { width: 1280, height: 720 },"1080p": { width: 1920, height: 1080 },"1440p": { width: 2560, height: 1440 },"2K": { width: 2048, height: 1080 },"4K": { width: 3840, height: 2160 },"5K": { width: 5120, height: 2880 },"8K": { width: 7680, height: 4320 }};

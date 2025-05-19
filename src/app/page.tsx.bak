@@ -1,0 +1,124 @@
+"use client";
+
+import { useState, useRef } from "react";
+
+export default function Home() {
+  const [videoSrc, setVideoSrc] = useState<string | null>(null);
+  const [processedVideoSrc, setProcessedVideoSrc] = useState<string | null>(
+    null
+  );
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [resolution, setResolution] = useState<string>("1080p");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const url = URL.createObjectURL(file);
+    setVideoSrc(url);
+    setProcessedVideoSrc(null);
+  };
+
+  const handleResolutionChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setResolution(e.target.value);
+  };
+
+  const simulateProcessing = () => {
+    if (!videoSrc) return;
+
+    setIsProcessing(true);
+
+    // Simulate processing time (in a real app, this would be the actual processing)
+    setTimeout(() => {
+      setProcessedVideoSrc(videoSrc);
+      setIsProcessing(false);
+    }, 2000);
+  };
+
+  return (
+    <main className="flex min-h-screen flex-col items-center justify-between p-8 bg-gray-50">
+      <div className="w-full max-w-5xl">
+        <h1 className="text-4xl font-bold text-center mb-8">Video Upscaler</h1>
+        <p className="text-center mb-12 text-gray-600">
+          Upload your video to upscale it to 1080p, 2K, or 4K resolution
+        </p>
+
+        <div className="bg-white p-6 rounded-lg shadow-md">
+          <div className="mb-6">
+            <label className="block text-sm font-medium mb-2">
+              Select Video File
+            </label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="video/*"
+              onChange={handleFileChange}
+              className="block w-full text-sm border border-gray-300 rounded p-2"
+              disabled={isProcessing}
+            />
+          </div>
+
+          {videoSrc && (
+            <div className="mb-6">
+              <h3 className="text-lg font-medium mb-2">Original Video</h3>
+              <video
+                src={videoSrc}
+                controls
+                className="w-full max-h-64 rounded border"
+              />
+            </div>
+          )}
+
+          <div className="mb-6">
+            <label className="block text-sm font-medium mb-2">
+              Select Target Resolution
+            </label>
+            <select
+              value={resolution}
+              onChange={handleResolutionChange}
+              className="block w-full p-2 border border-gray-300 rounded"
+              disabled={!videoSrc || isProcessing}
+            >
+              <option value="1080p">1080p (Full HD)</option>
+              <option value="2K">2K (1440p)</option>
+              <option value="4K">4K (2160p)</option>
+            </select>
+          </div>
+
+          <button
+            onClick={simulateProcessing}
+            disabled={!videoSrc || isProcessing}
+            className={`w-full py-3 px-4 rounded font-medium text-white ${
+              !videoSrc || isProcessing
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-blue-600 hover:bg-blue-700"
+            }`}
+          >
+            {isProcessing ? "Processing..." : "Upscale Video"}
+          </button>
+
+          {processedVideoSrc && (
+            <div className="mt-8">
+              <h3 className="text-lg font-medium mb-2">
+                Upscaled Video ({resolution})
+              </h3>
+              <video
+                src={processedVideoSrc}
+                controls
+                className="w-full max-h-64 rounded border"
+              />
+              <a
+                href={processedVideoSrc}
+                download={`upscaled-${resolution}.mp4`}
+                className="mt-3 inline-block bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700"
+              >
+                Download Upscaled Video
+              </a>
+            </div>
+          )}
+        </div>
+      </div>
+    </main>
+  );
+}
