@@ -7,6 +7,7 @@ import {
   formatFileSize,
   upscaleVideo,
 } from "./utils/video-upscaler";
+import Header from "./components/Header";
 
 export default function Home() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -17,8 +18,8 @@ export default function Home() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [resolution, setResolution] = useState<Resolution>("1080p");
-  const [bitrate, setBitrate] = useState<number>(20); // Default 20 Mbps
-  const [format, setFormat] = useState<"webm" | "mp4">("webm");
+  const [bitrate, setBitrate] = useState<number>(50); // Default 50 Mbps
+  const [format, setFormat] = useState<"webm" | "mp4">("mp4");
   const [videoInfo, setVideoInfo] = useState<{
     width: number;
     height: number;
@@ -83,7 +84,7 @@ export default function Home() {
       const url = URL.createObjectURL(result.blob);
       setProcessedVideoSrc(url);
       setProcessedSize(result.fileSize);
-    } catch (err) {
+    } catch (err: any) {
       // Only show error if not cancelled
       if (err.message !== "Operation cancelled") {
         console.error("Error during video processing:", err);
@@ -107,11 +108,13 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
+      <Header />
+
       {/* Hero section with uploader */}
-      <section className="py-16 px-4">
+      <section className="pt-10 pb-16 px-4">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-10">
-            <h1 className="text-5xl font-bold mb-3">Video Upscaler</h1>
+            <h1 className="text-4xl font-bold mb-3">Video Upscaler</h1>
             <p className="text-xl text-gray-300">
               Upscale your videos to higher resolutions using browser-native
               technology
@@ -204,7 +207,6 @@ export default function Home() {
                 <input
                   type="range"
                   min="5"
-                  max="100"
                   value={bitrate}
                   onChange={handleBitrateChange}
                   className="w-full"
@@ -222,8 +224,8 @@ export default function Home() {
                   className="block w-full p-2 border border-gray-600 rounded bg-gray-700"
                   disabled={!videoSrc || isProcessing}
                 >
-                  <option value="webm">WebM (Video)</option>
                   <option value="mp4">MP4 (Video)</option>
+                  <option value="webm">WebM (Video)</option>
                 </select>
               </div>
             </div>
@@ -255,10 +257,7 @@ export default function Home() {
                               bitsPerPixelPerFrame) /
                             1_000_000;
 
-                          const effectiveBitrate = Math.min(
-                            bitrate,
-                            maxReasonableBitrateMbps
-                          );
+                          const effectiveBitrate = bitrate;
 
                           const sizeBytes = Math.round(
                             (videoInfo.duration *
@@ -779,6 +778,35 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* Footer */}
+      <footer className="bg-gray-900 py-4 border-t border-gray-800">
+        <div className="max-w-6xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center">
+          <div className="text-gray-400 text-sm mb-3 md:mb-0">
+            © 2025 Application. All rights reserved.
+          </div>
+          <div className="flex gap-6 text-sm">
+            <a
+              href="/terms"
+              className="text-gray-400 hover:text-teal-300 transition-colors"
+            >
+              Terms of Service
+            </a>
+            <a
+              href="/privacy"
+              className="text-gray-400 hover:text-teal-300 transition-colors"
+            >
+              Privacy Policy
+            </a>
+            <a
+              href="/contact"
+              className="text-gray-400 hover:text-teal-300 transition-colors"
+            >
+              Contact
+            </a>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

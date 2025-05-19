@@ -111,7 +111,12 @@ export async function upscaleVideo(
 
       // Create MediaRecorder with appropriate settings
       const videoStream = canvas.captureStream();
-      const audioStream = sourceVideo.captureStream().getAudioTracks()[0];
+
+      // Fix TypeScript error with type assertion
+      const audioStream = (
+        (sourceVideo as any).captureStream?.() || new MediaStream()
+      ).getAudioTracks()[0];
+
       if (audioStream) {
         videoStream.addTrack(audioStream);
       }
@@ -172,7 +177,9 @@ export async function upscaleVideo(
             );
 
             const data = ffmpeg.FS("readFile", "output.mp4");
-            const mp4Blob = new Blob([data.buffer], { type: "video/mp4" });
+            const mp4Blob = new Blob([new Uint8Array(data.buffer)], {
+              type: "video/mp4",
+            });
             resolve({ blob: mp4Blob, fileSize: mp4Blob.size });
           })().catch((err) => {
             console.error("FFmpeg MP4 conversion failed:", err);
@@ -201,7 +208,7 @@ export async function upscaleVideo(
         }
 
         // Draw video directly to fit canvas preserving aspect ratio (no padding)
-        ctx.drawImage(sourceVideo, 0, 0, newWidth, newHeight);
+        ctx?.drawImage(sourceVideo, 0, 0, newWidth, newHeight);
 
         const currentProgress = (sourceVideo.currentTime / videoDuration) * 100;
         if (
