@@ -18,7 +18,7 @@ export default function Home() {
   const [progress, setProgress] = useState(0);
   const [resolution, setResolution] = useState<Resolution>("1080p");
   const [bitrate, setBitrate] = useState<number>(20); // Default 20 Mbps
-  const [format, setFormat] = useState<"webm">("webm");
+  const [format, setFormat] = useState<"webm" | "mp4">("webm");
   const [videoInfo, setVideoInfo] = useState<{
     width: number;
     height: number;
@@ -58,7 +58,7 @@ export default function Home() {
   };
 
   const handleFormatChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setFormat(e.target.value as "webm");
+    setFormat(e.target.value as "webm" | "mp4");
   };
 
   const startUpscaling = async () => {
@@ -197,7 +197,8 @@ export default function Home() {
                 className="block w-full p-2 border border-gray-300 rounded"
                 disabled={!videoSrc || isProcessing}
               >
-                <option value="webm">WebM (Video+Audio)</option>
+                <option value="webm">WebM (Video)</option>
+                <option value="mp4">MP4 (Video)</option>
               </select>
             </div>
           </div>
@@ -243,7 +244,7 @@ export default function Home() {
             <div className="mt-8">
               <div className="flex justify-between items-center mb-2">
                 <h3 className="text-lg font-medium">
-                  Upscaled {format === "mp3" ? "Audio" : "Video"} ({resolution})
+                  Upscaled Video ({resolution})
                 </h3>
                 {processedSize && (
                   <span className="text-lg font-bold bg-green-100 p-2 rounded-md">
@@ -251,20 +252,18 @@ export default function Home() {
                   </span>
                 )}
               </div>
-              {format !== "mp3" && (
+              {
                 <video
                   src={processedVideoSrc}
                   controls
                   className="w-full max-h-64 rounded border"
+                  key={format}
                 />
-              )}
-              {format === "mp3" && (
-                <audio src={processedVideoSrc} controls className="w-full" />
-              )}
+              }
               <div className="mt-3 flex justify-between">
                 <a
                   href={processedVideoSrc}
-                  download={`upscaled-${resolution}.webm`}
+                  download={`upscaled-${resolution}.${format}`}
                   className="inline-block bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700"
                 >
                   Download Video
