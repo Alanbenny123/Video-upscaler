@@ -1,10 +1,6 @@
 import { Resolution, resolutionSettings } from "./resolutions";
-// Dynamically import ffmpeg only when needed (mp4 conversion)
-// Using FFmpeg v0.12.x requires importing from correct exports
-type FFmpegModule = {
-  fetchFile: (file: File | Blob | string) => Promise<Uint8Array>;
-  FFmpeg: new () => any;
-};
+// Dynamically import ffmpeg only when needed (mp4 conversion) – we pin to 0.11.x which exposes createFFmpeg + fetchFile
+type FFmpegModule = typeof import("@ffmpeg/ffmpeg");
 
 interface VideoInfo {
   width: number;
@@ -145,37 +141,38 @@ export async function upscaleVideo(
         if (options.format === "mp4") {
           (async () => {
             if (isAborted) return; // Don't start FFmpeg if aborted
-            // Import from correct paths for FFmpeg v0.12.x
-            const { FFmpeg } = await import("@ffmpeg/ffmpeg");
-            const { fetchFile } = await import("@ffmpeg/ffmpeg/dist/esm/utils");
-
-            const ffmpeg = new FFmpeg();
-            ffmpeg.on("log", ({ message }: any) => {
-              console.log(message);
-            });
-
+            const { createFFmpeg, fetchFile }: FFmpegModule = await import(
+              "@ffmpeg/ffmpeg"
+            );
+            const ffmpeg = createFFmpeg({ log: true });
             await ffmpeg.load();
-            if (isAborted) return; // Check abort before heavy processing
+            if (isAborted) return;
 
-            // Write the input file
-            await ffmpeg.writeFile("input.webm", await fetchFile(webmBlob));
+            await ffmpeg.FS(
+              "writeFile",
+              "input.webm",
+              await fetchFile(webmBlob)
+            );
 
-            // Run the conversion
-            await ffmpeg.exec([
+            // Higher quality encoding: slow preset + CRF 18 (visually lossless)
+            await ffmpeg.run(
               "-i",
               "input.webm",
               "-c:v",
               "libx264",
+              "-preset",
+              "slow",
+              "-crf",
+              "18",
               "-c:a",
               "aac",
               "-b:a",
               "192k",
-              "output.mp4",
-            ]);
+              "output.mp4"
+            );
 
-            // Read the output file
-            const data = await ffmpeg.readFile("output.mp4");
-            const mp4Blob = new Blob([data], { type: "video/mp4" });
+            const data = ffmpeg.FS("readFile", "output.mp4");
+            const mp4Blob = new Blob([data.buffer], { type: "video/mp4" });
             resolve({ blob: mp4Blob, fileSize: mp4Blob.size });
           })().catch((err) => {
             console.error("FFmpeg MP4 conversion failed:", err);
