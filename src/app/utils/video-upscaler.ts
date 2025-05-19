@@ -114,7 +114,11 @@ export async function upscaleVideo(
 
       // Fix TypeScript error with type assertion
       const audioStream = (
-        (sourceVideo as any).captureStream?.() || new MediaStream()
+        (
+          sourceVideo as HTMLVideoElement & {
+            captureStream?: () => MediaStream;
+          }
+        ).captureStream?.() || new MediaStream()
       ).getAudioTracks()[0];
 
       if (audioStream) {

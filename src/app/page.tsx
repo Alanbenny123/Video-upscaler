@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { Resolution, resolutionSettings } from "./utils/resolutions";
 import {
   getVideoInfo,
@@ -8,6 +8,7 @@ import {
   upscaleVideo,
 } from "./utils/video-upscaler";
 import Header from "./components/Header";
+import Link from "next/link";
 
 export default function Home() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -84,9 +85,9 @@ export default function Home() {
       const url = URL.createObjectURL(result.blob);
       setProcessedVideoSrc(url);
       setProcessedSize(result.fileSize);
-    } catch (err: any) {
+    } catch (err: unknown) {
       // Only show error if not cancelled
-      if (err.message !== "Operation cancelled") {
+      if (err instanceof Error && err.message !== "Operation cancelled") {
         console.error("Error during video processing:", err);
         setError(
           "An error occurred during video processing. Please try again."
@@ -230,21 +231,24 @@ export default function Home() {
               </div>
             </div>
 
-            {videoSrc && (
-              <div className="mb-6 p-4 bg-gray-700/50 rounded-lg">
-                <h3 className="text-lg font-medium mb-2">Target Settings</h3>
-                <div className="grid grid-cols-2 gap-2">
+            {videoInfo && (
+              <div className="mb-4 p-3 bg-gray-700/50 rounded">
+                <div className="grid grid-cols-2 gap-2 text-sm">
                   <div>
                     <span className="font-semibold">Target Resolution:</span>{" "}
                     {resolutionSettings[resolution].width}×
                     {resolutionSettings[resolution].height}
                   </div>
                   <div>
-                    <span className="font-semibold">Target Bitrate:</span>{" "}
-                    {bitrate} Mbps
+                    <span className="font-semibold">Bitrate:</span> {bitrate}{" "}
+                    Mbps
                   </div>
                   <div>
-                    <span className="font-semibold">Estimated Size:</span>{" "}
+                    <span className="font-semibold">Format:</span>{" "}
+                    {format.toUpperCase()}
+                  </div>
+                  <div>
+                    <span className="font-semibold">Est. File Size:</span>{" "}
                     {videoInfo
                       ? (() => {
                           const target = resolutionSettings[resolution];
@@ -257,7 +261,11 @@ export default function Home() {
                               bitsPerPixelPerFrame) /
                             1_000_000;
 
-                          const effectiveBitrate = bitrate;
+                          // Use the calculated or user-selected bitrate, whichever is lower for better efficiency
+                          const effectiveBitrate = Math.min(
+                            bitrate,
+                            maxReasonableBitrateMbps
+                          );
 
                           const sizeBytes = Math.round(
                             (videoInfo.duration *
@@ -587,13 +595,12 @@ export default function Home() {
           </div>
 
           <div className="flex justify-center mt-12">
-            <a
-              href="#"
+            <button
               onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
               className="bg-teal-500 hover:bg-teal-600 text-white font-medium py-3 px-8 rounded-full transition-colors text-lg"
             >
               Try It Now
-            </a>
+            </button>
           </div>
         </div>
       </section>
@@ -769,10 +776,10 @@ export default function Home() {
                 </span>
               </summary>
               <p className="mt-4 text-gray-400">
-                There's no hard limit, but browser processing is more suitable
-                for shorter videos. We recommend videos under 10 minutes for the
-                best experience. Larger videos might take longer to process and
-                use more system resources.
+                There&apos;s no hard limit, but browser processing is more
+                suitable for shorter videos. We recommend videos under 10
+                minutes for the best experience. Larger videos might take longer
+                to process and use more system resources.
               </p>
             </details>
           </div>
@@ -783,27 +790,27 @@ export default function Home() {
       <footer className="bg-gray-900 py-4 border-t border-gray-800">
         <div className="max-w-6xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center">
           <div className="text-gray-400 text-sm mb-3 md:mb-0">
-            © 2025 Application. All rights reserved.
+            &copy; 2025 Application. All rights reserved.
           </div>
           <div className="flex gap-6 text-sm">
-            <a
+            <Link
               href="/terms"
               className="text-gray-400 hover:text-teal-300 transition-colors"
             >
               Terms of Service
-            </a>
-            <a
+            </Link>
+            <Link
               href="/privacy"
               className="text-gray-400 hover:text-teal-300 transition-colors"
             >
               Privacy Policy
-            </a>
-            <a
+            </Link>
+            <Link
               href="/contact"
               className="text-gray-400 hover:text-teal-300 transition-colors"
             >
               Contact
-            </a>
+            </Link>
           </div>
         </div>
       </footer>

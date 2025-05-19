@@ -1,4 +1,5 @@
 import Header from "../components/Header";
+import Link from "next/link";
 
 export default function TermsOfService() {
   return (
@@ -142,12 +143,12 @@ export default function TermsOfService() {
           </div>
 
           <div className="mt-12 text-center">
-            <a
+            <Link
               href="/"
               className="inline-block bg-teal-600 hover:bg-teal-700 text-white font-medium py-2 px-6 rounded-md transition-colors"
             >
               Return to Home
-            </a>
+            </Link>
           </div>
         </div>
       </div>
@@ -156,27 +157,27 @@ export default function TermsOfService() {
       <footer className="bg-gray-900 py-4 border-t border-gray-800">
         <div className="max-w-6xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center">
           <div className="text-gray-400 text-sm mb-3 md:mb-0">
-            © 2025 Application. All rights reserved.
+            &copy; 2025 Application. All rights reserved.
           </div>
           <div className="flex gap-6 text-sm">
-            <a
+            <Link
               href="/terms"
               className="text-gray-400 hover:text-teal-300 transition-colors"
             >
               Terms of Service
-            </a>
-            <a
+            </Link>
+            <Link
               href="/privacy"
               className="text-gray-400 hover:text-teal-300 transition-colors"
             >
               Privacy Policy
-            </a>
-            <a
+            </Link>
+            <Link
               href="/contact"
               className="text-gray-400 hover:text-teal-300 transition-colors"
             >
               Contact
-            </a>
+            </Link>
           </div>
         </div>
       </footer>

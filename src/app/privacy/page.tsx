@@ -1,4 +1,5 @@
 import Header from "../components/Header";
+import Link from "next/link";
 
 export default function PrivacyPolicy() {
   return (
@@ -28,7 +29,7 @@ export default function PrivacyPolicy() {
 
             <section>
               <h2 className="text-2xl font-semibold mb-4 text-teal-300">
-                2. Information We Don't Collect
+                2. Information We Don&apos;t Collect
               </h2>
               <p className="mb-4">
                 Our Video Upscaler service processes all videos locally in your
@@ -132,7 +133,7 @@ export default function PrivacyPolicy() {
               <p className="mb-4">
                 We may update our Privacy Policy from time to time. We will
                 notify you of any changes by posting the new Privacy Policy on
-                this page and updating the "last updated" date.
+                this page and updating the &quot;last updated&quot; date.
               </p>
               <p>
                 You are advised to review this Privacy Policy periodically for
@@ -153,12 +154,12 @@ export default function PrivacyPolicy() {
           </div>
 
           <div className="mt-12 text-center">
-            <a
+            <Link
               href="/"
               className="inline-block bg-teal-600 hover:bg-teal-700 text-white font-medium py-2 px-6 rounded-md transition-colors"
             >
               Return to Home
-            </a>
+            </Link>
           </div>
         </div>
       </div>
@@ -167,27 +168,27 @@ export default function PrivacyPolicy() {
       <footer className="bg-gray-900 py-4 border-t border-gray-800">
         <div className="max-w-6xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center">
           <div className="text-gray-400 text-sm mb-3 md:mb-0">
-            © 2025 Application. All rights reserved.
+            &copy; 2025 Application. All rights reserved.
           </div>
           <div className="flex gap-6 text-sm">
-            <a
+            <Link
               href="/terms"
               className="text-gray-400 hover:text-teal-300 transition-colors"
             >
               Terms of Service
-            </a>
-            <a
+            </Link>
+            <Link
               href="/privacy"
               className="text-gray-400 hover:text-teal-300 transition-colors"
             >
               Privacy Policy
-            </a>
-            <a
+            </Link>
+            <Link
               href="/contact"
               className="text-gray-400 hover:text-teal-300 transition-colors"
             >
               Contact
-            </a>
+            </Link>
           </div>
         </div>
       </footer>
