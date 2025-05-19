@@ -140,13 +140,19 @@ export async function upscaleVideo(
         // If target is MP4, transcode using ffmpeg.wasm
         if (options.format === "mp4") {
           (async () => {
+<<<<<<< HEAD
             if (isAborted) return; // Don't start FFmpeg if aborted
+=======
+>>>>>>> 691a59d623aa7b0672b0425441a63442b0d293d3
             const { createFFmpeg, fetchFile }: FFmpegModule = await import(
               "@ffmpeg/ffmpeg"
             );
             const ffmpeg = createFFmpeg({ log: true });
             await ffmpeg.load();
+<<<<<<< HEAD
             if (isAborted) return; // Check abort before heavy processing
+=======
+>>>>>>> 691a59d623aa7b0672b0425441a63442b0d293d3
             await ffmpeg.FS(
               "writeFile",
               "input.webm",
