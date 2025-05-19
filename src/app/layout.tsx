@@ -27,7 +27,35 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
+        <nav className="w-full flex items-center justify-between px-8 py-5 bg-black text-white text-lg font-medium shadow">
+          <div className="flex items-center gap-2">
+            <span className="text-2xl font-bold tracking-tight">Upscaler</span>
+          </div>
+          <div className="flex items-center gap-8">
+            <a
+              href="#features"
+              className="hover:text-cyan-300 transition-colors font-semibold"
+              id="nav-features"
+            >
+              Features
+            </a>
+            <a
+              href="#how"
+              className="hover:text-cyan-300 transition-colors font-semibold"
+              id="nav-how"
+            >
+              How It Works
+            </a>
+            <a
+              href="#faq"
+              className="hover:text-cyan-300 transition-colors font-semibold"
+              id="nav-faq"
+            >
+              FAQ
+            </a>
+          </div>
+        </nav>
+        <main className="w-full">{children}</main>
       </body>
     </html>
   );
