@@ -10,11 +10,10 @@
   },
   "dependencies": {
     "@ffmpeg/ffmpeg": "^0.12.15",
+    "@ffmpeg/core": "0.11.0",
     "next": "15.3.2",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "@ffmpeg/ffmpeg": "0.11.8",
-    "@ffmpeg/core": "0.11.0"
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
