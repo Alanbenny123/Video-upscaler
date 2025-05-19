@@ -586,6 +586,16 @@ export default function Home() {
               </div>
             </div>
           </div>
+
+          <div className="flex justify-center mt-12">
+            <a
+              href="#"
+              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+              className="bg-teal-500 hover:bg-teal-600 text-white font-medium py-3 px-8 rounded-full transition-colors text-lg"
+            >
+              Try It Now
+            </a>
+          </div>
         </div>
       </section>
 
