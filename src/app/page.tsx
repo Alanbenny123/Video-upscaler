@@ -18,7 +18,7 @@ export default function Home() {
   const [progress, setProgress] = useState(0);
   const [resolution, setResolution] = useState<Resolution>("1080p");
   const [bitrate, setBitrate] = useState<number>(20); // Default 20 Mbps
-  const [format, setFormat] = useState<"webm">("webm");
+  const [format, setFormat] = useState<"webm" | "mp4">("webm");
   const [videoInfo, setVideoInfo] = useState<{
     width: number;
     height: number;
@@ -27,6 +27,7 @@ export default function Home() {
   } | null>(null);
   const [processedSize, setProcessedSize] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const abortController = useRef<AbortController | null>(null);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -58,7 +59,7 @@ export default function Home() {
   };
 
   const handleFormatChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setFormat(e.target.value as "webm");
+    setFormat(e.target.value as "webm" | "mp4");
   };
 
   const startUpscaling = async () => {
@@ -69,20 +70,38 @@ export default function Home() {
       setProgress(0);
       setError(null);
 
+      // Create new abort controller
+      abortController.current = new AbortController();
+
       const result = await upscaleVideo(
         selectedFile,
         { resolution, bitrate, format },
-        (progress) => setProgress(progress)
+        (progress) => setProgress(progress),
+        abortController.current.signal
       );
 
       const url = URL.createObjectURL(result.blob);
       setProcessedVideoSrc(url);
       setProcessedSize(result.fileSize);
     } catch (err) {
-      console.error("Error during video processing:", err);
-      setError("An error occurred during video processing. Please try again.");
+      // Only show error if not cancelled
+      if (err.message !== "Operation cancelled") {
+        console.error("Error during video processing:", err);
+        setError(
+          "An error occurred during video processing. Please try again."
+        );
+      }
     } finally {
       setIsProcessing(false);
+      abortController.current = null;
+    }
+  };
+
+  const cancelProcessing = () => {
+    if (abortController.current) {
+      abortController.current.abort();
+      setIsProcessing(false);
+      setProgress(0);
     }
   };
 
@@ -197,7 +216,8 @@ export default function Home() {
                 className="block w-full p-2 border border-gray-300 rounded"
                 disabled={!videoSrc || isProcessing}
               >
-                <option value="webm">WebM (Video+Audio)</option>
+                <option value="webm">WebM (Video)</option>
+                <option value="mp4">MP4 (Video)</option>
               </select>
             </div>
           </div>
@@ -218,9 +238,29 @@ export default function Home() {
                 <div>
                   <span className="font-semibold">Estimated Size:</span>{" "}
                   {videoInfo
-                    ? formatFileSize(
-                        Math.round((videoInfo.duration * bitrate * 1000000) / 8)
-                      )
+                    ? (() => {
+                        const target = resolutionSettings[resolution];
+                        const assumedFps = 30; // rough default
+                        const bitsPerPixelPerFrame = 0.1; // empirically ~0.1 for good quality VP9/H264
+                        const maxReasonableBitrateMbps =
+                          (target.width *
+                            target.height *
+                            assumedFps *
+                            bitsPerPixelPerFrame) /
+                          1_000_000;
+
+                        const effectiveBitrate = Math.min(
+                          bitrate,
+                          maxReasonableBitrateMbps
+                        );
+
+                        const sizeBytes = Math.round(
+                          (videoInfo.duration * effectiveBitrate * 1_000_000) /
+                            8
+                        );
+
+                        return formatFileSize(sizeBytes);
+                      })()
                     : "-"}
                 </div>
               </div>
@@ -239,11 +279,20 @@ export default function Home() {
             {isProcessing ? `Processing... ${progress}%` : "Upscale Video"}
           </button>
 
+          {isProcessing && (
+            <button
+              onClick={cancelProcessing}
+              className="mt-2 w-full py-3 px-4 rounded font-medium text-white bg-red-600 hover:bg-red-700"
+            >
+              Cancel Processing
+            </button>
+          )}
+
           {processedVideoSrc && (
             <div className="mt-8">
               <div className="flex justify-between items-center mb-2">
                 <h3 className="text-lg font-medium">
-                  Upscaled {format === "mp3" ? "Audio" : "Video"} ({resolution})
+                  Upscaled Video ({resolution})
                 </h3>
                 {processedSize && (
                   <span className="text-lg font-bold bg-green-100 p-2 rounded-md">
@@ -251,20 +300,18 @@ export default function Home() {
                   </span>
                 )}
               </div>
-              {format !== "mp3" && (
+              {
                 <video
                   src={processedVideoSrc}
                   controls
                   className="w-full max-h-64 rounded border"
+                  key={format}
                 />
-              )}
-              {format === "mp3" && (
-                <audio src={processedVideoSrc} controls className="w-full" />
-              )}
+              }
               <div className="mt-3 flex justify-between">
                 <a
                   href={processedVideoSrc}
-                  download={`upscaled-${resolution}.webm`}
+                  download={`upscaled-${resolution}.${format}`}
                   className="inline-block bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700"
                 >
                   Download Video
