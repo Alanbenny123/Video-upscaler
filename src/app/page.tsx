@@ -29,6 +29,9 @@ export default function Home() {
   } | null>(null);
   const [processedSize, setProcessedSize] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showDownloadSuccess, setShowDownloadSuccess] = useState(false);
+  const [hasBeenDownloaded, setHasBeenDownloaded] = useState(false);
+  const [showRedownloadModal, setShowRedownloadModal] = useState(false);
   const abortController = useRef<AbortController | null>(null);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -42,6 +45,7 @@ export default function Home() {
       setProcessedVideoSrc(null);
       setProcessedSize(null);
       setError(null);
+      setHasBeenDownloaded(false);
 
       // Get video metadata
       const info = await getVideoInfo(file);
@@ -71,39 +75,76 @@ export default function Home() {
       setIsProcessing(true);
       setProgress(0);
       setError(null);
+      setProcessedVideoSrc(null); // Reset any previous processed video
 
       // Create new abort controller
       abortController.current = new AbortController();
 
+      console.log("Starting upscale process for file:", selectedFile.name);
+
       const result = await upscaleVideo(
         selectedFile,
         { resolution, bitrate, format },
-        (progress) => setProgress(progress),
+        (progress) => {
+          console.log("Progress update:", progress);
+          setProgress(progress);
+        },
         abortController.current.signal
       );
 
+      console.log("Upscale completed successfully");
       const url = URL.createObjectURL(result.blob);
       setProcessedVideoSrc(url);
       setProcessedSize(result.fileSize);
     } catch (err: unknown) {
+      console.error("Upscale error:", err);
       // Only show error if not cancelled
       if (err instanceof Error && err.message !== "Operation cancelled") {
-        console.error("Error during video processing:", err);
         setError(
-          "An error occurred during video processing. Please try again."
+          `Error during video processing: ${
+            err instanceof Error ? err.message : "Unknown error"
+          }`
         );
       }
     } finally {
       setIsProcessing(false);
+      setProgress(0);
       abortController.current = null;
     }
   };
 
   const cancelProcessing = () => {
+    console.log("Cancelling processing...");
     if (abortController.current) {
       abortController.current.abort();
       setIsProcessing(false);
       setProgress(0);
+      setError(null);
+    }
+  };
+
+  const handleDownload = () => {
+    if (processedVideoSrc) {
+      if (hasBeenDownloaded) {
+        setShowRedownloadModal(true);
+      } else {
+        downloadVideo();
+      }
+    }
+  };
+
+  const downloadVideo = () => {
+    if (processedVideoSrc) {
+      const link = document.createElement("a");
+      link.href = processedVideoSrc;
+      link.download = `upscaled-${resolution}.${format}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      setHasBeenDownloaded(true);
+      setShowDownloadSuccess(true);
+      setTimeout(() => setShowDownloadSuccess(false), 3000);
     }
   };
 
@@ -303,6 +344,26 @@ export default function Home() {
               </button>
             )}
 
+            {showDownloadSuccess && (
+              <div className="fixed bottom-4 right-4 bg-teal-600 text-white px-6 py-3 rounded-lg shadow-lg flex items-center space-x-2 animate-fade-in-up z-50">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-6 w-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+                <span>Downloaded successfully!</span>
+              </div>
+            )}
+
             {processedVideoSrc && (
               <div className="mt-8">
                 <div className="flex justify-between items-center mb-2">
@@ -324,13 +385,12 @@ export default function Home() {
                   />
                 }
                 <div className="mt-3 flex justify-between">
-                  <a
-                    href={processedVideoSrc}
-                    download={`upscaled-${resolution}.${format}`}
+                  <button
+                    onClick={handleDownload}
                     className="inline-block bg-teal-600 text-white py-2 px-4 rounded hover:bg-teal-700"
                   >
                     Download Video
-                  </a>
+                  </button>
                   {videoInfo && processedSize && (
                     <div className="text-sm bg-gray-700/50 p-2 rounded">
                       <span className="font-semibold">Size comparison: </span>
@@ -814,6 +874,36 @@ export default function Home() {
           </div>
         </div>
       </footer>
+
+      {/* Redownload Confirmation Modal */}
+      {showRedownloadModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-xl font-semibold mb-4">Redownload Video?</h3>
+            <p className="text-gray-300 mb-6">
+              You&apos;ve already downloaded this video. Would you like to
+              download it again?
+            </p>
+            <div className="flex justify-end space-x-4">
+              <button
+                onClick={() => setShowRedownloadModal(false)}
+                className="px-4 py-2 rounded bg-gray-600 hover:bg-gray-700 transition-colors"
+              >
+                No, Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setShowRedownloadModal(false);
+                  downloadVideo();
+                }}
+                className="px-4 py-2 rounded bg-teal-600 hover:bg-teal-700 transition-colors"
+              >
+                Yes, Download Again
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
