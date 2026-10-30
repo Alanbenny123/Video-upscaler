@@ -12,12 +12,6 @@ export default function Contact() {
     message: "",
   });
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitStatus, setSubmitStatus] = useState<{
-    success: boolean;
-    message: string;
-  } | null>(null);
-
   const handleChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
@@ -30,37 +24,13 @@ export default function Contact() {
     }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
-
-    // This is a placeholder for actual form submission
-    // In a real application, you would connect this to your backend
-    try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      setSubmitStatus({
-        success: true,
-        message: "Thank you for your message. We will get back to you soon!",
-      });
-
-      // Reset form
-      setFormData({
-        name: "",
-        email: "",
-        subject: "",
-        message: "",
-      });
-    } catch {
-      setSubmitStatus({
-        success: false,
-        message:
-          "There was an error sending your message. Please try again later.",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
+    const subject = `${formData.subject}: Video Upscaler`;
+    const body = `Name: ${formData.name}\nReply email: ${formData.email}\n\n${formData.message}`;
+    window.location.href =
+      `mailto:support@videoupscaler.com?subject=${encodeURIComponent(subject)}` +
+      `&body=${encodeURIComponent(body)}`;
   };
 
   return (
@@ -78,8 +48,8 @@ export default function Contact() {
               </h2>
               <p className="text-gray-300 mb-8">
                 Have questions, feedback, or need assistance with our Video
-                Upscaler? Fill out the form and we&apos;ll get back to you as
-                soon as possible.
+                Upscaler? Fill out the form to open a draft in your email app.
+                Review and send it there.
               </p>
 
               <div className="space-y-4">
@@ -102,7 +72,12 @@ export default function Contact() {
                   </div>
                   <div>
                     <div className="text-sm text-gray-400">Email</div>
-                    <div>support@videoupscaler.com</div>
+                    <a
+                      href="mailto:support@videoupscaler.com"
+                      className="hover:underline"
+                    >
+                      support@videoupscaler.com
+                    </a>
                   </div>
                 </div>
 
@@ -124,40 +99,18 @@ export default function Contact() {
                     </svg>
                   </div>
                   <div>
-                    <div className="text-sm text-gray-400">Response Time</div>
-                    <div>Usually within 24-48 hours</div>
+                    <div className="text-sm text-gray-400">Sending</div>
+                    <div>Your email app handles delivery</div>
                   </div>
                 </div>
               </div>
             </div>
 
             <div>
-              {submitStatus ? (
-                <div
-                  className={`p-6 rounded-lg mb-8 ${
-                    submitStatus.success
-                      ? "bg-teal-900/30 text-teal-300"
-                      : "bg-red-900/30 text-red-300"
-                  }`}
-                >
-                  <h3 className="text-lg font-semibold mb-2">
-                    {submitStatus.success ? "Message Sent!" : "Error"}
-                  </h3>
-                  <p>{submitStatus.message}</p>
-                  {submitStatus.success && (
-                    <button
-                      onClick={() => setSubmitStatus(null)}
-                      className="mt-4 bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded transition-colors"
-                    >
-                      Send Another Message
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <form
-                  onSubmit={handleSubmit}
-                  className="bg-gray-800 rounded-lg p-6"
-                >
+              <form
+                onSubmit={handleSubmit}
+                className="bg-gray-800 rounded-lg p-6"
+              >
                   <div className="mb-4">
                     <label
                       htmlFor="name"
@@ -241,17 +194,11 @@ export default function Contact() {
 
                   <button
                     type="submit"
-                    disabled={isSubmitting}
-                    className={`w-full py-3 px-4 rounded-md font-medium text-white transition-colors ${
-                      isSubmitting
-                        ? "bg-gray-600 cursor-not-allowed"
-                        : "bg-teal-600 hover:bg-teal-700"
-                    }`}
+                    className="w-full py-3 px-4 rounded-md font-medium text-white transition-colors bg-teal-600 hover:bg-teal-700"
                   >
-                    {isSubmitting ? "Sending..." : "Send Message"}
+                    Open Email Draft
                   </button>
-                </form>
-              )}
+              </form>
             </div>
           </div>
 

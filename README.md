@@ -1,6 +1,6 @@
 # Video Upscaler
 
-A web application that allows users to upscale videos to various resolutions (480p to 8K) directly in the browser using HTML5 Canvas and MediaRecorder APIs.
+A web application that resizes videos to various output resolutions (480p to 8K) directly in the browser using HTML5 Canvas and MediaRecorder APIs. Scaling increases pixel dimensions but does not reconstruct detail missing from the original video.
 
 ## Features
 
@@ -11,7 +11,7 @@ A web application that allows users to upscale videos to various resolutions (48
 - See estimated file size before processing
 - Real-time progress tracking during upscaling
 - Compare original and processed file sizes
-- Download the upscaled video in WebM format
+- Download the resized video in WebM or MP4 format (MP4 requires browser-side FFmpeg conversion)
 
 ## Technology
 

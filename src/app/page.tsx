@@ -33,8 +33,10 @@ export default function Home() {
   const [hasBeenDownloaded, setHasBeenDownloaded] = useState(false);
   const [showRedownloadModal, setShowRedownloadModal] = useState(false);
   const abortController = useRef<AbortController | null>(null);
+  const fileSelectionId = useRef(0);
 
   useEffect(() => () => {
+    fileSelectionId.current += 1;
     abortController.current?.abort();
   }, []);
 
@@ -50,20 +52,31 @@ export default function Home() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    const selectionId = ++fileSelectionId.current;
+    setSelectedFile(null);
+    setVideoSrc(null);
+    setVideoInfo(null);
+    setProcessedVideoSrc(null);
+    setProcessedSize(null);
+    setError(null);
+    setHasBeenDownloaded(false);
+    setShowRedownloadModal(false);
+
     try {
+      const info = await getVideoInfo(file);
+      if (selectionId !== fileSelectionId.current) return;
+      if (info.width <= 0 || info.height <= 0 || !Number.isFinite(info.duration)) {
+        throw new Error("Invalid video metadata");
+      }
+
       const url = URL.createObjectURL(file);
       setSelectedFile(file);
       setVideoSrc(url);
-      setProcessedVideoSrc(null);
-      setProcessedSize(null);
-      setError(null);
-      setHasBeenDownloaded(false);
-
-      // Get video metadata
-      const info = await getVideoInfo(file);
       setVideoInfo(info);
     } catch (err) {
-      setError("Error loading video file. Please try another file.");
+      if (selectionId === fileSelectionId.current) {
+        setError("Error loading video file. Please try another file.");
+      }
       console.error(err);
     }
   };
@@ -170,8 +183,7 @@ export default function Home() {
           <div className="text-center mb-10">
             <h1 className="text-4xl font-bold mb-3">Video Upscaler</h1>
             <p className="text-xl text-gray-300">
-              Upscale your videos to higher resolutions using browser-native
-              technology
+              Resize your videos to higher resolutions in your browser
             </p>
           </div>
 
@@ -511,10 +523,10 @@ export default function Home() {
                   />
                 </svg>
               </div>
-              <h3 className="text-xl font-bold mb-3">High Quality</h3>
+              <h3 className="text-xl font-bold mb-3">Higher Resolution</h3>
               <p className="text-gray-400">
-                Advanced algorithms preserve detail while increasing resolution
-                for stunning results.
+                Canvas scaling increases the output dimensions while keeping
+                the original aspect ratio. It cannot restore missing detail.
               </p>
             </div>
 
@@ -660,7 +672,7 @@ export default function Home() {
                 </div>
                 <h3 className="text-xl font-bold text-center mb-3">Download</h3>
                 <p className="text-gray-400 text-center">
-                  Get your upscaled video in high quality, ready to use
+                  Download the resized video in your selected format
                 </p>
               </div>
             </div>
