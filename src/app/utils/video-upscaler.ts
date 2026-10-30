@@ -1,6 +1,7 @@
 import { Resolution, resolutionSettings } from "./resolutions";
 // Dynamically import ffmpeg only when needed (mp4 conversion) – we pin to 0.11.x which exposes createFFmpeg + fetchFile
 type FFmpegModule = typeof import("@ffmpeg/ffmpeg");
+type FFmpegInstance = ReturnType<FFmpegModule["createFFmpeg"]>;
 
 interface VideoInfo {
   width: number;
@@ -55,225 +56,267 @@ export async function upscaleVideo(
   onProgress: (progress: number) => void,
   abortSignal?: AbortSignal
 ): Promise<{ blob: Blob; fileSize: number }> {
-  console.log("Starting video upscale process", { file, options });
   return new Promise((resolve, reject) => {
-    const sourceVideo = document.createElement("video");
-    sourceVideo.src = URL.createObjectURL(file);
-    sourceVideo.muted = true;
-
-    const targetDimensions = resolutionSettings[options.resolution];
-    console.log("Target dimensions:", targetDimensions);
-
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d", { alpha: false });
-
-    if (!ctx) {
-      console.error("Failed to get canvas context");
-      reject(new Error("Failed to get canvas context"));
+    if (abortSignal?.aborted) {
+      reject(new Error("Operation cancelled"));
       return;
     }
 
-    // Handle abort signal
-    let isAborted = false;
+    const sourceVideo = document.createElement("video");
+    sourceVideo.src = URL.createObjectURL(file);
+    sourceVideo.muted = true;
+    const targetDimensions = resolutionSettings[options.resolution];
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d", { alpha: false });
     let mediaRecorder: MediaRecorder | null = null;
+    let videoStream: MediaStream | null = null;
+    let sourceStream: MediaStream | null = null;
+    let ffmpeg: FFmpegInstance | null = null;
+    let frameId: number | null = null;
+    let usingVideoFrameCallback = false;
+    let pausedForVisibility = false;
+    let settled = false;
 
-    if (abortSignal) {
-      if (abortSignal.aborted) {
-        console.log("Operation was already aborted");
-        reject(new Error("Operation cancelled"));
-        return;
+    const cancelFrame = () => {
+      if (frameId === null) return;
+      if (usingVideoFrameCallback) {
+        sourceVideo.cancelVideoFrameCallback(frameId);
+      } else {
+        cancelAnimationFrame(frameId);
       }
-      abortSignal.addEventListener("abort", () => {
-        console.log("Operation aborted by user");
-        isAborted = true;
-        sourceVideo.pause();
-        if (mediaRecorder && mediaRecorder.state !== "inactive") {
+      frameId = null;
+    };
+
+    const stopStreams = () => {
+      videoStream?.getTracks().forEach((track) => track.stop());
+      sourceStream?.getTracks().forEach((track) => track.stop());
+      videoStream = null;
+      sourceStream = null;
+    };
+
+    const stopFFmpeg = () => {
+      if (!ffmpeg) return;
+      try {
+        ffmpeg.exit();
+      } catch {
+        // A worker may already have exited after an encoding failure.
+      }
+      ffmpeg = null;
+    };
+
+    const cleanup = () => {
+      cancelFrame();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      abortSignal?.removeEventListener("abort", handleAbort);
+      sourceVideo.pause();
+      sourceVideo.removeAttribute("src");
+      sourceVideo.load();
+      URL.revokeObjectURL(sourceUrl);
+      stopStreams();
+    };
+
+    const sourceUrl = sourceVideo.src;
+
+    const finish = (result: { blob: Blob; fileSize: number }) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      stopFFmpeg();
+      resolve(result);
+    };
+
+    const fail = (error: Error) => {
+      if (settled) return;
+      settled = true;
+      if (mediaRecorder && mediaRecorder.state !== "inactive") {
+        try {
           mediaRecorder.stop();
+        } catch {
+          // Continue releasing resources if recording has already failed.
         }
-        reject(new Error("Operation cancelled"));
-      });
+      }
+      cleanup();
+      stopFFmpeg();
+      reject(error);
+    };
+
+    const handleAbort = () => fail(new Error("Operation cancelled"));
+
+    const handleVisibilityChange = () => {
+      if (!mediaRecorder || settled) return;
+      if (document.hidden && mediaRecorder.state === "recording") {
+        pausedForVisibility = true;
+        cancelFrame();
+        sourceVideo.pause();
+        mediaRecorder.pause();
+      } else if (!document.hidden && pausedForVisibility) {
+        pausedForVisibility = false;
+        mediaRecorder.resume();
+        sourceVideo.play().then(scheduleFrame).catch(() => {
+          fail(new Error("Failed to resume source video"));
+        });
+      }
+    };
+
+    const scheduleFrame = () => {
+      if (settled || pausedForVisibility || sourceVideo.ended) return;
+      if ("requestVideoFrameCallback" in sourceVideo) {
+        usingVideoFrameCallback = true;
+        frameId = sourceVideo.requestVideoFrameCallback((_now, metadata) => {
+          drawFrame(metadata.mediaTime);
+        });
+      } else {
+        usingVideoFrameCallback = false;
+        frameId = requestAnimationFrame(() => drawFrame(sourceVideo.currentTime));
+      }
+    };
+
+    let lastProgress = -1;
+    const drawFrame = (mediaTime: number) => {
+      frameId = null;
+      if (settled || pausedForVisibility || sourceVideo.ended) return;
+      try {
+        ctx?.drawImage(sourceVideo, 0, 0, canvas.width, canvas.height);
+        if (Number.isFinite(sourceVideo.duration) && sourceVideo.duration > 0) {
+          const progress = Math.min(
+            100,
+            Math.floor((mediaTime / sourceVideo.duration) * 100)
+          );
+          if (progress > lastProgress) {
+            lastProgress = progress;
+            onProgress(progress);
+          }
+        }
+        scheduleFrame();
+      } catch {
+        fail(new Error("Failed to process a video frame"));
+      }
+    };
+
+    if (!ctx) {
+      fail(new Error("Failed to get canvas context"));
+      return;
     }
 
+    abortSignal?.addEventListener("abort", handleAbort, { once: true });
+
     sourceVideo.onloadedmetadata = () => {
-      console.log("Video metadata loaded", {
-        width: sourceVideo.videoWidth,
-        height: sourceVideo.videoHeight,
-        duration: sourceVideo.duration,
-      });
-
-      // Decide which side to fit based on orientation to keep original aspect ratio with NO black bars.
-      let newWidth: number;
-      let newHeight: number;
-
-      if (sourceVideo.videoWidth >= sourceVideo.videoHeight) {
-        // Landscape – fit width to target width
-        const scale = targetDimensions.width / sourceVideo.videoWidth;
-        newWidth = targetDimensions.width;
-        newHeight = Math.round(sourceVideo.videoHeight * scale);
-      } else {
-        // Portrait – fit height to target height
-        const scale = targetDimensions.height / sourceVideo.videoHeight;
-        newHeight = targetDimensions.height;
-        newWidth = Math.round(sourceVideo.videoWidth * scale);
-      }
-
-      // Resize canvas to the exact scaled dimensions (no letterboxing)
-      canvas.width = newWidth;
-      canvas.height = newHeight;
-
-      // Create MediaRecorder with appropriate settings
-      const videoStream = canvas.captureStream();
-      console.log("Created canvas stream");
-
-      // Fix TypeScript error with type assertion
-      const audioStream = (
-        (
-          sourceVideo as HTMLVideoElement & {
-            captureStream?: () => MediaStream;
-          }
-        ).captureStream?.() || new MediaStream()
-      ).getAudioTracks()[0];
-
-      if (audioStream) {
-        console.log("Audio track found and added");
-        videoStream.addTrack(audioStream);
-      } else {
-        console.log("No audio track found");
-      }
-
-      // We always record WebM (browser-supported); MP4 will be generated by transcoding later.
-      const mimeType = "video/webm;codecs=vp9,opus";
-
+      if (settled) return;
       try {
+        // Keep the original aspect ratio without adding black bars.
+        let newWidth: number;
+        let newHeight: number;
+
+        if (sourceVideo.videoWidth >= sourceVideo.videoHeight) {
+          const scale = targetDimensions.width / sourceVideo.videoWidth;
+          newWidth = targetDimensions.width;
+          newHeight = Math.round(sourceVideo.videoHeight * scale);
+        } else {
+          const scale = targetDimensions.height / sourceVideo.videoHeight;
+          newHeight = targetDimensions.height;
+          newWidth = Math.round(sourceVideo.videoWidth * scale);
+        }
+
+        canvas.width = newWidth;
+        canvas.height = newHeight;
+        videoStream = canvas.captureStream();
+
+        sourceStream = (
+          sourceVideo as HTMLVideoElement & { captureStream?: () => MediaStream }
+        ).captureStream?.() ?? null;
+        const audioTrack = sourceStream?.getAudioTracks()[0];
+
+        if (audioTrack) videoStream.addTrack(audioTrack);
+
+        // MP4 is produced only after WebM recording and conversion succeed.
+        const mimeType = "video/webm;codecs=vp9,opus";
+
         mediaRecorder = new MediaRecorder(videoStream, {
           mimeType,
           videoBitsPerSecond: options.bitrate * 1000000,
         });
-        console.log("MediaRecorder created successfully");
-      } catch (err) {
-        console.error("Failed to create MediaRecorder:", err);
-        reject(
+
+        const chunks: Blob[] = [];
+
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0) chunks.push(e.data);
+        };
+
+        mediaRecorder.onerror = () => fail(new Error("Error during recording"));
+
+        mediaRecorder.onstop = () => {
+          if (settled) return;
+          cancelFrame();
+          sourceVideo.pause();
+          stopStreams();
+          const webmBlob = new Blob(chunks, { type: "video/webm" });
+
+          if (options.format === "mp4") {
+            (async () => {
+              const { createFFmpeg, fetchFile }: FFmpegModule = await import(
+                "@ffmpeg/ffmpeg"
+              );
+              if (settled) return;
+              ffmpeg = createFFmpeg({ log: false });
+              await ffmpeg.load();
+              if (settled) return;
+
+              ffmpeg.FS("writeFile", "input.webm", await fetchFile(webmBlob));
+
+              await ffmpeg.run(
+                "-i",
+                "input.webm",
+                "-c:v",
+                "libx264",
+                "-preset",
+                "slow",
+                "-crf",
+                "18",
+                "-c:a",
+                "aac",
+                "-b:a",
+                "192k",
+                "output.mp4"
+              );
+              if (settled) return;
+
+              const data = ffmpeg.FS("readFile", "output.mp4");
+              const mp4Blob = new Blob([new Uint8Array(data.buffer)], {
+                type: "video/mp4",
+              });
+              finish({ blob: mp4Blob, fileSize: mp4Blob.size });
+            })().catch((err) => {
+              fail(new Error("MP4 conversion failed", { cause: err }));
+            });
+          } else {
+            finish({ blob: webmBlob, fileSize: webmBlob.size });
+          }
+        };
+
+        sourceVideo.onended = () => {
+          cancelFrame();
+          if (mediaRecorder && mediaRecorder.state !== "inactive") {
+            mediaRecorder.stop();
+          }
+        };
+
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+        mediaRecorder.start(1000);
+        sourceVideo.play()
+          .then(() => {
+            if (document.hidden) handleVisibilityChange();
+            else scheduleFrame();
+          })
+          .catch(() => fail(new Error("Failed to play source video")));
+      } catch {
+        fail(
           new Error(
             "Failed to initialize video recording. Your browser may not support the required codecs."
           )
         );
-        return;
       }
-
-      const chunks: Blob[] = [];
-
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) {
-          chunks.push(e.data);
-          console.log("Received chunk of size:", e.data.size);
-        }
-      };
-
-      mediaRecorder.onerror = (event) => {
-        console.error("MediaRecorder error:", event);
-        reject(new Error("Error during recording: " + event.error));
-      };
-
-      mediaRecorder.onstop = () => {
-        console.log("MediaRecorder stopped");
-        if (isAborted) return;
-        URL.revokeObjectURL(sourceVideo.src);
-        const webmBlob = new Blob(chunks, { type: "video/webm" });
-        console.log("Created final blob of size:", webmBlob.size);
-
-        // If target is MP4, transcode using ffmpeg.wasm
-        if (options.format === "mp4") {
-          (async () => {
-            if (isAborted) return; // Don't start FFmpeg if aborted
-            const { createFFmpeg, fetchFile }: FFmpegModule = await import(
-              "@ffmpeg/ffmpeg"
-            );
-            const ffmpeg = createFFmpeg({ log: true });
-            await ffmpeg.load();
-            if (isAborted) return;
-
-            await ffmpeg.FS(
-              "writeFile",
-              "input.webm",
-              await fetchFile(webmBlob)
-            );
-
-            // Higher quality encoding: slow preset + CRF 18 (visually lossless)
-            await ffmpeg.run(
-              "-i",
-              "input.webm",
-              "-c:v",
-              "libx264",
-              "-preset",
-              "slow",
-              "-crf",
-              "18",
-              "-c:a",
-              "aac",
-              "-b:a",
-              "192k",
-              "output.mp4"
-            );
-
-            const data = ffmpeg.FS("readFile", "output.mp4");
-            const mp4Blob = new Blob([new Uint8Array(data.buffer)], {
-              type: "video/mp4",
-            });
-            resolve({ blob: mp4Blob, fileSize: mp4Blob.size });
-          })().catch((err) => {
-            console.error("FFmpeg MP4 conversion failed:", err);
-            // Fallback to returning WebM
-            resolve({ blob: webmBlob, fileSize: webmBlob.size });
-          });
-        } else {
-          // Return WebM directly
-          resolve({ blob: webmBlob, fileSize: webmBlob.size });
-        }
-      };
-
-      sourceVideo.play().catch((err) => {
-        console.error("Failed to play source video:", err);
-        reject(new Error("Failed to play source video"));
-      });
-
-      mediaRecorder.start(1000);
-      console.log("MediaRecorder started");
-
-      let lastProcessedTime = 0;
-      const videoDuration = sourceVideo.duration;
-
-      function processFrame() {
-        if (isAborted) return;
-        if (sourceVideo.ended || sourceVideo.paused) {
-          console.log("Video ended or paused, stopping recorder");
-          if (mediaRecorder && mediaRecorder.state !== "inactive") {
-            mediaRecorder.stop();
-          }
-          return;
-        }
-
-        ctx?.drawImage(sourceVideo, 0, 0, newWidth, newHeight);
-
-        const currentProgress = (sourceVideo.currentTime / videoDuration) * 100;
-        if (
-          Math.floor(currentProgress) >
-          Math.floor((lastProcessedTime / videoDuration) * 100)
-        ) {
-          console.log("Progress:", Math.floor(currentProgress));
-          onProgress(Math.floor(currentProgress));
-          lastProcessedTime = sourceVideo.currentTime;
-        }
-
-        requestAnimationFrame(processFrame);
-      }
-
-      processFrame();
     };
 
-    sourceVideo.onerror = (e) => {
-      console.error("Video loading error:", e);
-      URL.revokeObjectURL(sourceVideo.src);
-      reject(new Error("Error loading video file"));
-    };
+    sourceVideo.onerror = () => fail(new Error("Error loading video file"));
   });
 }

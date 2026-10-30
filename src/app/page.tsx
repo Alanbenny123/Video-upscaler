@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Resolution, resolutionSettings } from "./utils/resolutions";
 import {
   getVideoInfo,
@@ -33,6 +33,18 @@ export default function Home() {
   const [hasBeenDownloaded, setHasBeenDownloaded] = useState(false);
   const [showRedownloadModal, setShowRedownloadModal] = useState(false);
   const abortController = useRef<AbortController | null>(null);
+
+  useEffect(() => () => {
+    abortController.current?.abort();
+  }, []);
+
+  useEffect(() => () => {
+    if (videoSrc) URL.revokeObjectURL(videoSrc);
+  }, [videoSrc]);
+
+  useEffect(() => () => {
+    if (processedVideoSrc) URL.revokeObjectURL(processedVideoSrc);
+  }, [processedVideoSrc]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
