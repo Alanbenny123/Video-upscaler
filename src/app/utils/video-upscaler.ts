@@ -16,6 +16,28 @@ interface UpscaleOptions {
   format?: "webm" | "mp4"; // mp4 support via ffmpeg.wasm
 }
 
+export function getOutputDimensions(
+  sourceWidth: number,
+  sourceHeight: number,
+  resolution: Resolution
+): { width: number; height: number } {
+  if (sourceWidth <= 0 || sourceHeight <= 0) {
+    throw new Error("Invalid source dimensions");
+  }
+
+  const target = resolutionSettings[resolution];
+  const landscape = sourceWidth >= sourceHeight;
+  const scale = landscape
+    ? target.width / sourceWidth
+    : target.height / sourceHeight;
+  const even = (value: number) => Math.max(2, Math.round(value / 2) * 2);
+
+  return {
+    width: landscape ? target.width : even(sourceWidth * scale),
+    height: landscape ? even(sourceHeight * scale) : target.height,
+  };
+}
+
 export async function getVideoInfo(file: File): Promise<VideoInfo> {
   return new Promise((resolve, reject) => {
     const video = document.createElement("video");
@@ -65,7 +87,6 @@ export async function upscaleVideo(
     const sourceVideo = document.createElement("video");
     sourceVideo.src = URL.createObjectURL(file);
     sourceVideo.muted = true;
-    const targetDimensions = resolutionSettings[options.resolution];
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d", { alpha: false });
     let mediaRecorder: MediaRecorder | null = null;
@@ -203,22 +224,13 @@ export async function upscaleVideo(
     sourceVideo.onloadedmetadata = () => {
       if (settled) return;
       try {
-        // Keep the original aspect ratio without adding black bars.
-        let newWidth: number;
-        let newHeight: number;
-
-        if (sourceVideo.videoWidth >= sourceVideo.videoHeight) {
-          const scale = targetDimensions.width / sourceVideo.videoWidth;
-          newWidth = targetDimensions.width;
-          newHeight = Math.round(sourceVideo.videoHeight * scale);
-        } else {
-          const scale = targetDimensions.height / sourceVideo.videoHeight;
-          newHeight = targetDimensions.height;
-          newWidth = Math.round(sourceVideo.videoWidth * scale);
-        }
-
-        canvas.width = newWidth;
-        canvas.height = newHeight;
+        const dimensions = getOutputDimensions(
+          sourceVideo.videoWidth,
+          sourceVideo.videoHeight,
+          options.resolution
+        );
+        canvas.width = dimensions.width;
+        canvas.height = dimensions.height;
         videoStream = canvas.captureStream();
 
         sourceStream = (
@@ -228,8 +240,14 @@ export async function upscaleVideo(
 
         if (audioTrack) videoStream.addTrack(audioTrack);
 
-        // MP4 is produced only after WebM recording and conversion succeed.
-        const mimeType = "video/webm;codecs=vp9,opus";
+        const mimeType = [
+          "video/webm;codecs=vp9,opus",
+          "video/webm;codecs=vp8,opus",
+          "video/webm",
+        ].find((type) => MediaRecorder.isTypeSupported(type));
+        if (!mimeType) {
+          throw new Error("This browser cannot record WebM video");
+        }
 
         mediaRecorder = new MediaRecorder(videoStream, {
           mimeType,
@@ -270,8 +288,8 @@ export async function upscaleVideo(
                 "libx264",
                 "-preset",
                 "slow",
-                "-crf",
-                "18",
+                "-b:v",
+                `${options.bitrate}M`,
                 "-c:a",
                 "aac",
                 "-b:a",
@@ -308,11 +326,13 @@ export async function upscaleVideo(
             else scheduleFrame();
           })
           .catch(() => fail(new Error("Failed to play source video")));
-      } catch {
+      } catch (error) {
         fail(
-          new Error(
-            "Failed to initialize video recording. Your browser may not support the required codecs."
-          )
+          error instanceof Error && error.message === "This browser cannot record WebM video"
+            ? error
+            : new Error(
+                "Failed to initialize video recording. Your browser may not support the required codecs."
+              )
         );
       }
     };

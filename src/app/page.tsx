@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { Resolution, resolutionSettings } from "./utils/resolutions";
+import { Resolution } from "./utils/resolutions";
 import {
   getVideoInfo,
+  getOutputDimensions,
   formatFileSize,
   upscaleVideo,
 } from "./utils/video-upscaler";
@@ -34,6 +35,9 @@ export default function Home() {
   const [showRedownloadModal, setShowRedownloadModal] = useState(false);
   const abortController = useRef<AbortController | null>(null);
   const fileSelectionId = useRef(0);
+  const outputDimensions = videoInfo
+    ? getOutputDimensions(videoInfo.width, videoInfo.height, resolution)
+    : null;
 
   useEffect(() => () => {
     fileSelectionId.current += 1;
@@ -301,8 +305,7 @@ export default function Home() {
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div>
                     <span className="font-semibold">Target Resolution:</span>{" "}
-                    {resolutionSettings[resolution].width}×
-                    {resolutionSettings[resolution].height}
+                    {outputDimensions?.width}×{outputDimensions?.height}
                   </div>
                   <div>
                     <span className="font-semibold">Bitrate:</span> {bitrate}{" "}
@@ -313,35 +316,12 @@ export default function Home() {
                     {format.toUpperCase()}
                   </div>
                   <div>
-                    <span className="font-semibold">Est. File Size:</span>{" "}
-                    {videoInfo
-                      ? (() => {
-                          const target = resolutionSettings[resolution];
-                          const assumedFps = 30; // rough default
-                          const bitsPerPixelPerFrame = 0.1; // empirically ~0.1 for good quality VP9/H264
-                          const maxReasonableBitrateMbps =
-                            (target.width *
-                              target.height *
-                              assumedFps *
-                              bitsPerPixelPerFrame) /
-                            1_000_000;
-
-                          // Use the calculated or user-selected bitrate, whichever is lower for better efficiency
-                          const effectiveBitrate = Math.min(
-                            bitrate,
-                            maxReasonableBitrateMbps
-                          );
-
-                          const sizeBytes = Math.round(
-                            (videoInfo.duration *
-                              effectiveBitrate *
-                              1_000_000) /
-                              8
-                          );
-
-                          return formatFileSize(sizeBytes);
-                        })()
-                      : "-"}
+                    <span className="font-semibold">Approx. Size at Target Bitrate:</span>{" "}
+                    {formatFileSize(
+                      Math.round(
+                        (videoInfo.duration * (bitrate + 0.192) * 1_000_000) / 8
+                      )
+                    )}
                   </div>
                 </div>
               </div>
