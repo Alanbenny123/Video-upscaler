@@ -268,6 +268,10 @@ export async function upscaleVideo(
           sourceVideo.pause();
           stopStreams();
           const webmBlob = new Blob(chunks, { type: "video/webm" });
+          if (webmBlob.size === 0) {
+            fail(new Error("Recording produced an empty video"));
+            return;
+          }
 
           if (options.format === "mp4") {
             (async () => {
@@ -302,6 +306,9 @@ export async function upscaleVideo(
               const mp4Blob = new Blob([new Uint8Array(data.buffer)], {
                 type: "video/mp4",
               });
+              if (mp4Blob.size === 0) {
+                throw new Error("MP4 conversion produced an empty video");
+              }
               finish({ blob: mp4Blob, fileSize: mp4Blob.size });
             })().catch((err) => {
               fail(new Error("MP4 conversion failed", { cause: err }));

@@ -29,6 +29,10 @@ export default function Home() {
     fileSize: number;
   } | null>(null);
   const [processedSize, setProcessedSize] = useState<number | null>(null);
+  const [processedSettings, setProcessedSettings] = useState<{
+    resolution: Resolution;
+    format: "webm" | "mp4";
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showDownloadSuccess, setShowDownloadSuccess] = useState(false);
   const [hasBeenDownloaded, setHasBeenDownloaded] = useState(false);
@@ -62,6 +66,7 @@ export default function Home() {
     setVideoInfo(null);
     setProcessedVideoSrc(null);
     setProcessedSize(null);
+    setProcessedSettings(null);
     setError(null);
     setHasBeenDownloaded(false);
     setShowRedownloadModal(false);
@@ -99,12 +104,17 @@ export default function Home() {
 
   const startUpscaling = async () => {
     if (!selectedFile) return;
+    const outputSettings = { resolution, format };
 
     try {
       setIsProcessing(true);
       setProgress(0);
       setError(null);
       setProcessedVideoSrc(null); // Reset any previous processed video
+      setProcessedSettings(null);
+      setHasBeenDownloaded(false);
+      setShowRedownloadModal(false);
+      setShowDownloadSuccess(false);
 
       // Create new abort controller
       abortController.current = new AbortController();
@@ -113,7 +123,7 @@ export default function Home() {
 
       const result = await upscaleVideo(
         selectedFile,
-        { resolution, bitrate, format },
+        { ...outputSettings, bitrate },
         (progress) => {
           console.log("Progress update:", progress);
           setProgress(progress);
@@ -125,6 +135,7 @@ export default function Home() {
       const url = URL.createObjectURL(result.blob);
       setProcessedVideoSrc(url);
       setProcessedSize(result.fileSize);
+      setProcessedSettings(outputSettings);
     } catch (err: unknown) {
       console.error("Upscale error:", err);
       // Only show error if not cancelled
@@ -163,10 +174,10 @@ export default function Home() {
   };
 
   const downloadVideo = () => {
-    if (processedVideoSrc) {
+    if (processedVideoSrc && processedSettings) {
       const link = document.createElement("a");
       link.href = processedVideoSrc;
-      link.download = `upscaled-${resolution}.${format}`;
+      link.download = `upscaled-${processedSettings.resolution}.${processedSettings.format}`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -372,7 +383,7 @@ export default function Home() {
               <div className="mt-8">
                 <div className="flex justify-between items-center mb-2">
                   <h3 className="text-lg font-medium">
-                    Upscaled Video ({resolution})
+                    Upscaled Video ({processedSettings?.resolution})
                   </h3>
                   {processedSize && (
                     <span className="text-lg font-bold bg-teal-900/30 p-2 rounded-md">
@@ -385,7 +396,7 @@ export default function Home() {
                     src={processedVideoSrc}
                     controls
                     className="w-full max-h-64 rounded border border-gray-600"
-                    key={format}
+                    key={processedSettings?.format}
                   />
                 }
                 <div className="mt-3 flex justify-between">
@@ -665,46 +676,6 @@ export default function Home() {
             >
               Try It Now
             </button>
-          </div>
-        </div>
-      </section>
-
-      {/* Trusted By Thousands Section */}
-      <section className="py-20 px-4 bg-gray-900">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">
-              Trusted by Thousands
-            </h2>
-            <p className="text-xl text-gray-400">
-              Join thousands of satisfied users who upscale videos every day
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* Stat 1 */}
-            <div className="bg-gray-800 rounded-lg p-8 text-center">
-              <div className="text-4xl md:text-5xl font-bold text-teal-400 mb-2">
-                10K+
-              </div>
-              <div className="text-gray-400">Videos Upscaled</div>
-            </div>
-
-            {/* Stat 2 */}
-            <div className="bg-gray-800 rounded-lg p-8 text-center">
-              <div className="text-4xl md:text-5xl font-bold text-teal-400 mb-2">
-                5K+
-              </div>
-              <div className="text-gray-400">Happy Users</div>
-            </div>
-
-            {/* Stat 3 */}
-            <div className="bg-gray-800 rounded-lg p-8 text-center">
-              <div className="text-4xl md:text-5xl font-bold text-teal-400 mb-2">
-                4.8/5
-              </div>
-              <div className="text-gray-400">User Rating</div>
-            </div>
           </div>
         </div>
       </section>
