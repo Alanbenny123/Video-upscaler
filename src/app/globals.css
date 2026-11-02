@@ -1,36 +1,42 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-  --card-bg: #f3f4f6;
-  --card-border: #e5e7eb;
-  --primary: #14b8a6;
-  --primary-hover: #0d9488;
-  --navbar-bg: #ffffff;
-  --navbar-border: #e5e7eb;
-}
-
+:root,
 .dark {
-  --background: #0a0a0a;
-  --foreground: #ededed;
-  --card-bg: #1f2937;
-  --card-border: #374151;
-  --primary: #14b8a6;
-  --primary-hover: #0d9488;
-  --navbar-bg: #111827;
-  --navbar-border: #1f2937;
+  color-scheme: dark;
+  --background: #191a1d;
+  --surface-deep: #151619;
+  --foreground: #efeeea;
+  --muted: #b4b3b0;
+  --subtle: #969593;
+  --card-bg: #252629;
+  --input-bg: #303135;
+  --soft-bg: #35363a;
+  --card-border: #3d3e42;
+  --primary: #deddd8;
+  --primary-hover: #ffffff;
+  --button-bg: #414247;
+  --button-hover: #56575c;
+  --navbar-bg: #1c1d20;
+  --navbar-border: #343539;
 }
 
 .light {
-  --background: #ffffff;
-  --foreground: #171717;
-  --card-bg: #f3f4f6;
-  --card-border: #e5e7eb;
-  --primary: #14b8a6;
-  --primary-hover: #0d9488;
-  --navbar-bg: #ffffff;
-  --navbar-border: #e5e7eb;
+  color-scheme: light;
+  --background: #e9e8e5;
+  --surface-deep: #e1e0dd;
+  --foreground: #222326;
+  --muted: #55565a;
+  --subtle: #66676a;
+  --card-bg: #f5f4f1;
+  --input-bg: #e5e4e0;
+  --soft-bg: #deddda;
+  --card-border: #c9c8c4;
+  --primary: #27282b;
+  --primary-hover: #111214;
+  --button-bg: #343539;
+  --button-hover: #4b4c50;
+  --navbar-bg: #f5f4f1;
+  --navbar-border: #d2d1cd;
 }
 
 @theme inline {
@@ -40,17 +46,6 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not(.light):not(.dark) {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-    --card-bg: #1f2937;
-    --card-border: #374151;
-    --navbar-bg: #111827;
-    --navbar-border: #1f2937;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
@@ -58,7 +53,19 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* Utility classes for theme variables */
+.theme-hero {
+  background: radial-gradient(ellipse at 50% 0%, #2b2c30 0%, var(--background) 68%);
+}
+
+.light .theme-hero {
+  background: radial-gradient(ellipse at 50% 0%, #f5f4f1 0%, var(--background) 68%);
+}
+
+::selection {
+  background: #77787c;
+  color: #fff;
+}
+
 .bg-background { background-color: var(--background); }
 .text-foreground { color: var(--foreground); }
 .bg-card { background-color: var(--card-bg); }
@@ -66,96 +73,49 @@ body {
 .bg-navbar { background-color: var(--navbar-bg); }
 .border-navbar { border-color: var(--navbar-border); }
 .text-primary { color: var(--primary); }
-.bg-primary { background-color: var(--primary); }
-.hover\:bg-primary-hover:hover { background-color: var(--primary-hover); }
-.hover\:text-primary:hover { color: var(--primary); }
+.bg-primary { background-color: var(--button-bg); }
+.hover\:bg-primary-hover:hover { background-color: var(--button-hover); }
+.hover\:text-primary:hover { color: var(--primary-hover); }
 
-/* Make all transitions smoother */
-* {
-  transition-property: color, background-color, border-color, opacity;
-  transition-duration: 0.3s;
-  transition-timing-function: ease;
-}
+/* Map the existing utility classes to the reference's neutral palette. */
+.bg-neutral-900 { background-color: var(--background); }
+.bg-neutral-950 { background-color: var(--surface-deep); }
+.bg-neutral-800 { background-color: var(--card-bg); }
+.bg-neutral-700 { background-color: var(--input-bg); }
+.bg-neutral-600 { background-color: var(--button-bg); }
+.hover\:bg-neutral-500:hover { background-color: var(--button-hover); }
+.hover\:bg-neutral-700:hover { background-color: var(--button-hover); }
+[class*="bg-neutral-700/"] { background-color: color-mix(in srgb, var(--soft-bg) 55%, transparent); }
+.text-white { color: var(--foreground); }
+.text-neutral-200 { color: var(--primary); }
+.hover\:text-neutral-200:hover { color: var(--primary-hover); }
+.text-neutral-300 { color: var(--muted); }
+.text-neutral-400 { color: var(--subtle); }
+.border-neutral-600,
+.border-neutral-700,
+.border-neutral-800 { border-color: var(--card-border); }
+.divide-neutral-700 > :not(:last-child) { border-color: var(--card-border); }
 
-/* Light/Dark mode specific Tailwind styles */
-.dark .dark\:bg-gray-900 {
-  background-color: var(--navbar-bg);
-}
+.light button.text-white,
+.light a.text-white,
+.light .bg-primary .text-white { color: #f4f3ef; }
+.light .bg-neutral-700.text-white { color: var(--foreground); }
 
-.dark .dark\:text-white {
+input,
+select,
+textarea {
   color: var(--foreground);
+  accent-color: #a9a8a3;
 }
 
-.light .light\:bg-white {
-  background-color: var(--navbar-bg);
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
-
-.light .light\:text-gray-800 {
-  color: var(--foreground);
-}
-
-.dark .dark\:border-gray-800 {
-  border-color: var(--navbar-border);
-}
-
-.light .light\:border-gray-200 {
-  border-color: var(--navbar-border);
-}
-
-.dark .dark\:bg-gray-800 {
-  background-color: var(--card-bg);
-}
-
-.light .light\:bg-gray-100 {
-  background-color: var(--card-bg);
-}
-
-.dark .dark\:border-gray-700 {
-  border-color: var(--card-border);
-}
-
-.light .light\:border-gray-200 {
-  border-color: var(--card-border);
-}
-
-/* Light theme overrides for Tailwind utility classes */
-.light .bg-gray-900,
-.light .bg-gray-950 {
-  background-color: #ffffff !important;
-}
-
-.light .bg-gray-800 {
-  background-color: #f3f4f6 !important;
-}
-
-.light [class*="bg-gray-700"] {
-  background-color: #e5e7eb !important;
-}
-
-.light .text-white {
-  color: #171717 !important;
-}
-
-.light .text-gray-300 {
-  color: #4b5563 !important;
-}
-
-.light .text-gray-400 {
-  color: #374151 !important;
-}
-
-.light .border-gray-800,
-.light .border-gray-700 {
-  border-color: #e5e7eb !important;
-}
-
-.light .border-gray-600 {
-  border-color: #d1d5db !important;
-}
-
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
 
 @keyframes fadeInUp {
   from {

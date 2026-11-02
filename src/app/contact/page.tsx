@@ -34,7 +34,7 @@ export default function Contact() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white flex flex-col">
+    <div className="min-h-screen bg-neutral-900 text-white flex flex-col">
       <Header />
 
       <div className="flex-grow">
@@ -43,10 +43,10 @@ export default function Contact() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
             <div>
-              <h2 className="text-2xl font-semibold mb-6 text-teal-300">
+              <h2 className="text-2xl font-semibold mb-6 text-neutral-200">
                 Get in Touch
               </h2>
-              <p className="text-gray-300 mb-8">
+              <p className="text-neutral-300 mb-8">
                 Have questions, feedback, or need assistance with our Video
                 Upscaler? Fill out the form to open a draft in your email app.
                 Review and send it there.
@@ -54,10 +54,10 @@ export default function Contact() {
 
               <div className="space-y-4">
                 <div className="flex items-center">
-                  <div className="w-10 h-10 rounded-full bg-teal-900/50 flex items-center justify-center mr-4">
+                  <div className="w-10 h-10 rounded-full bg-neutral-700/50 flex items-center justify-center mr-4">
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
-                      className="h-5 w-5 text-teal-300"
+                      className="h-5 w-5 text-neutral-200"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -71,7 +71,7 @@ export default function Contact() {
                     </svg>
                   </div>
                   <div>
-                    <div className="text-sm text-gray-400">Email</div>
+                    <div className="text-sm text-neutral-400">Email</div>
                     <a
                       href="mailto:support@videoupscaler.com"
                       className="hover:underline"
@@ -82,10 +82,10 @@ export default function Contact() {
                 </div>
 
                 <div className="flex items-center">
-                  <div className="w-10 h-10 rounded-full bg-teal-900/50 flex items-center justify-center mr-4">
+                  <div className="w-10 h-10 rounded-full bg-neutral-700/50 flex items-center justify-center mr-4">
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
-                      className="h-5 w-5 text-teal-300"
+                      className="h-5 w-5 text-neutral-200"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -99,7 +99,7 @@ export default function Contact() {
                     </svg>
                   </div>
                   <div>
-                    <div className="text-sm text-gray-400">Sending</div>
+                    <div className="text-sm text-neutral-400">Sending</div>
                     <div>Your email app handles delivery</div>
                   </div>
                 </div>
@@ -109,7 +109,7 @@ export default function Contact() {
             <div>
               <form
                 onSubmit={handleSubmit}
-                className="bg-gray-800 rounded-lg p-6"
+                className="bg-neutral-800 rounded-lg p-6"
               >
                   <div className="mb-4">
                     <label
@@ -125,7 +125,7 @@ export default function Contact() {
                       required
                       value={formData.name}
                       onChange={handleChange}
-                      className="w-full p-3 bg-gray-700 border border-gray-600 rounded-md text-white"
+                      className="w-full p-3 bg-neutral-700 border border-neutral-600 rounded-md text-white"
                       placeholder="John Doe"
                     />
                   </div>
@@ -144,7 +144,7 @@ export default function Contact() {
                       required
                       value={formData.email}
                       onChange={handleChange}
-                      className="w-full p-3 bg-gray-700 border border-gray-600 rounded-md text-white"
+                      className="w-full p-3 bg-neutral-700 border border-neutral-600 rounded-md text-white"
                       placeholder="your@email.com"
                     />
                   </div>
@@ -162,7 +162,7 @@ export default function Contact() {
                       required
                       value={formData.subject}
                       onChange={handleChange}
-                      className="w-full p-3 bg-gray-700 border border-gray-600 rounded-md text-white"
+                      className="w-full p-3 bg-neutral-700 border border-neutral-600 rounded-md text-white"
                     >
                       <option value="">Select a subject</option>
                       <option value="support">Technical Support</option>
@@ -187,14 +187,14 @@ export default function Contact() {
                       value={formData.message}
                       onChange={handleChange}
                       rows={5}
-                      className="w-full p-3 bg-gray-700 border border-gray-600 rounded-md text-white resize-none"
+                      className="w-full p-3 bg-neutral-700 border border-neutral-600 rounded-md text-white resize-none"
                       placeholder="How can we help you?"
                     ></textarea>
                   </div>
 
                   <button
                     type="submit"
-                    className="w-full py-3 px-4 rounded-md font-medium text-white transition-colors bg-teal-600 hover:bg-teal-700"
+                    className="w-full py-3 px-4 rounded-md font-medium text-white transition-colors bg-neutral-600 hover:bg-neutral-500"
                   >
                     Open Email Draft
                   </button>
@@ -205,7 +205,7 @@ export default function Contact() {
           <div className="mt-12 text-center">
             <Link
               href="/"
-              className="inline-block bg-teal-600 hover:bg-teal-700 text-white font-medium py-2 px-6 rounded-md transition-colors"
+              className="inline-block bg-neutral-600 hover:bg-neutral-500 text-white font-medium py-2 px-6 rounded-md transition-colors"
             >
               Return to Home
             </Link>
@@ -214,27 +214,27 @@ export default function Contact() {
       </div>
 
       {/* Footer */}
-      <footer className="bg-gray-900 py-4 border-t border-gray-800">
+      <footer className="bg-neutral-900 py-4 border-t border-neutral-800">
         <div className="max-w-6xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center">
-          <div className="text-gray-400 text-sm mb-3 md:mb-0">
+          <div className="text-neutral-400 text-sm mb-3 md:mb-0">
             &copy; 2025 Application. All rights reserved.
           </div>
           <div className="flex gap-6 text-sm">
             <Link
               href="/terms"
-              className="text-gray-400 hover:text-teal-300 transition-colors"
+              className="text-neutral-400 hover:text-neutral-200 transition-colors"
             >
               Terms of Service
             </Link>
             <Link
               href="/privacy"
-              className="text-gray-400 hover:text-teal-300 transition-colors"
+              className="text-neutral-400 hover:text-neutral-200 transition-colors"
             >
               Privacy Policy
             </Link>
             <Link
               href="/contact"
-              className="text-gray-400 hover:text-teal-300 transition-colors"
+              className="text-neutral-400 hover:text-neutral-200 transition-colors"
             >
               Contact
             </Link>

@@ -5,8 +5,11 @@ import { Resolution } from "./utils/resolutions";
 import {
   getVideoInfo,
   getOutputDimensions,
+  getProcessingLimits,
+  estimateOutputSize,
   formatFileSize,
   upscaleVideo,
+  type ProcessingStage,
 } from "./utils/video-upscaler";
 import Header from "./components/Header";
 import Link from "next/link";
@@ -19,6 +22,7 @@ export default function Home() {
   );
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [processingStage, setProcessingStage] = useState<ProcessingStage>("recording");
   const [resolution, setResolution] = useState<Resolution>("1080p");
   const [bitrate, setBitrate] = useState<number>(50); // Default 50 Mbps
   const [format, setFormat] = useState<"webm" | "mp4">("mp4");
@@ -42,6 +46,15 @@ export default function Home() {
   const outputDimensions = videoInfo
     ? getOutputDimensions(videoInfo.width, videoInfo.height, resolution)
     : null;
+  const processingLimits = getProcessingLimits(format);
+  const estimatedOutputSize = videoInfo
+    ? estimateOutputSize(videoInfo.duration, bitrate)
+    : 0;
+  const exceedsProcessingLimit = Boolean(
+    selectedFile &&
+      (selectedFile.size > processingLimits.maxInputBytes ||
+        estimatedOutputSize > processingLimits.maxOutputBytes)
+  );
 
   useEffect(() => () => {
     fileSelectionId.current += 1;
@@ -103,12 +116,13 @@ export default function Home() {
   };
 
   const startUpscaling = async () => {
-    if (!selectedFile) return;
+    if (!selectedFile || exceedsProcessingLimit) return;
     const outputSettings = { resolution, format };
 
     try {
       setIsProcessing(true);
       setProgress(0);
+      setProcessingStage("recording");
       setError(null);
       setProcessedVideoSrc(null); // Reset any previous processed video
       setProcessedSettings(null);
@@ -124,9 +138,9 @@ export default function Home() {
       const result = await upscaleVideo(
         selectedFile,
         { ...outputSettings, bitrate },
-        (progress) => {
-          console.log("Progress update:", progress);
+        (progress, stage) => {
           setProgress(progress);
+          setProcessingStage(stage);
         },
         abortController.current.signal
       );
@@ -149,6 +163,7 @@ export default function Home() {
     } finally {
       setIsProcessing(false);
       setProgress(0);
+      setProcessingStage("recording");
       abortController.current = null;
     }
   };
@@ -189,20 +204,20 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
+    <div className="min-h-screen bg-neutral-900 text-white">
       <Header />
 
       {/* Hero section with uploader */}
-      <section className="pt-10 pb-16 px-4">
+      <section className="theme-hero pt-10 pb-16 px-4">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-10">
             <h1 className="text-4xl font-bold mb-3">Video Upscaler</h1>
-            <p className="text-xl text-gray-300">
+            <p className="text-xl text-neutral-300">
               Resize your videos to higher resolutions in your browser
             </p>
           </div>
 
-          <div className="bg-gray-800 rounded-lg shadow-xl p-6">
+          <div className="bg-neutral-800 rounded-lg shadow-xl p-6">
             {error && (
               <div className="mb-4 p-3 bg-red-900/50 text-red-200 rounded">
                 {error}
@@ -217,13 +232,13 @@ export default function Home() {
                 type="file"
                 accept="video/*"
                 onChange={handleFileChange}
-                className="block w-full text-sm border border-gray-600 rounded p-2 bg-gray-700"
+                className="block w-full text-sm border border-neutral-600 rounded p-2 bg-neutral-700"
                 disabled={isProcessing}
               />
             </div>
 
             {videoInfo && (
-              <div className="mb-6 p-4 bg-gray-700/50 rounded-lg">
+              <div className="mb-6 p-4 bg-neutral-700/50 rounded-lg">
                 <h3 className="text-lg font-medium mb-2">
                   Original Video Info
                 </h3>
@@ -254,7 +269,7 @@ export default function Home() {
                 <video
                   src={videoSrc}
                   controls
-                  className="w-full max-h-64 rounded border border-gray-600"
+                  className="w-full max-h-64 rounded border border-neutral-600"
                 />
               </div>
             )}
@@ -267,7 +282,7 @@ export default function Home() {
                 <select
                   value={resolution}
                   onChange={handleResolutionChange}
-                  className="block w-full p-2 border border-gray-600 rounded bg-gray-700"
+                  className="block w-full p-2 border border-neutral-600 rounded bg-neutral-700"
                   disabled={!videoSrc || isProcessing}
                 >
                   <option value="480p">480p (SD)</option>
@@ -302,7 +317,7 @@ export default function Home() {
                 <select
                   value={format}
                   onChange={handleFormatChange}
-                  className="block w-full p-2 border border-gray-600 rounded bg-gray-700"
+                  className="block w-full p-2 border border-neutral-600 rounded bg-neutral-700"
                   disabled={!videoSrc || isProcessing}
                 >
                   <option value="mp4">MP4 (Video)</option>
@@ -312,7 +327,7 @@ export default function Home() {
             </div>
 
             {videoInfo && (
-              <div className="mb-4 p-3 bg-gray-700/50 rounded">
+              <div className="mb-4 p-3 bg-neutral-700/50 rounded">
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div>
                     <span className="font-semibold">Target Resolution:</span>{" "}
@@ -328,26 +343,34 @@ export default function Home() {
                   </div>
                   <div>
                     <span className="font-semibold">Approx. Size at Target Bitrate:</span>{" "}
-                    {formatFileSize(
-                      Math.round(
-                        (videoInfo.duration * (bitrate + 0.192) * 1_000_000) / 8
-                      )
-                    )}
+                    {formatFileSize(estimatedOutputSize)}
                   </div>
                 </div>
+                <p className="mt-2 text-sm text-neutral-300">
+                  Browser processing limit: {formatFileSize(processingLimits.maxInputBytes)}
+                  {" "}input and {formatFileSize(processingLimits.maxOutputBytes)} output.
+                </p>
+                {exceedsProcessingLimit && (
+                  <p className="mt-2 text-sm text-red-300">
+                    This video or the estimated output exceeds the limit. Choose a
+                    shorter video, lower bitrate, or WebM format.
+                  </p>
+                )}
               </div>
             )}
 
             <button
               onClick={startUpscaling}
-              disabled={!videoSrc || isProcessing}
+              disabled={!videoSrc || isProcessing || exceedsProcessingLimit}
               className={`w-full py-3 px-4 rounded font-medium text-white ${
-                !videoSrc || isProcessing
-                  ? "bg-gray-600 cursor-not-allowed"
-                  : "bg-teal-600 hover:bg-teal-700"
+                !videoSrc || isProcessing || exceedsProcessingLimit
+                  ? "bg-neutral-600 cursor-not-allowed"
+                  : "bg-neutral-600 hover:bg-neutral-500"
               }`}
             >
-              {isProcessing ? `Processing... ${progress}%` : "Upscale Video"}
+              {isProcessing
+                ? `${processingStage === "converting" ? "Converting MP4" : "Recording video"}... ${progress}%`
+                : "Upscale Video"}
             </button>
 
             {isProcessing && (
@@ -360,7 +383,7 @@ export default function Home() {
             )}
 
             {showDownloadSuccess && (
-              <div className="fixed bottom-4 right-4 bg-teal-600 text-white px-6 py-3 rounded-lg shadow-lg flex items-center space-x-2 animate-fade-in-up z-50">
+              <div className="fixed bottom-4 right-4 bg-neutral-600 text-white px-6 py-3 rounded-lg shadow-lg flex items-center space-x-2 animate-fade-in-up z-50">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   className="h-6 w-6"
@@ -386,7 +409,7 @@ export default function Home() {
                     Upscaled Video ({processedSettings?.resolution})
                   </h3>
                   {processedSize && (
-                    <span className="text-lg font-bold bg-teal-900/30 p-2 rounded-md">
+                    <span className="text-lg font-bold bg-neutral-700/30 p-2 rounded-md">
                       File Size: {formatFileSize(processedSize)}
                     </span>
                   )}
@@ -395,19 +418,19 @@ export default function Home() {
                   <video
                     src={processedVideoSrc}
                     controls
-                    className="w-full max-h-64 rounded border border-gray-600"
+                    className="w-full max-h-64 rounded border border-neutral-600"
                     key={processedSettings?.format}
                   />
                 }
                 <div className="mt-3 flex justify-between">
                   <button
                     onClick={handleDownload}
-                    className="inline-block bg-teal-600 text-white py-2 px-4 rounded hover:bg-teal-700"
+                    className="inline-block bg-neutral-600 text-white py-2 px-4 rounded hover:bg-neutral-500"
                   >
                     Download Video
                   </button>
                   {videoInfo && processedSize && (
-                    <div className="text-sm bg-gray-700/50 p-2 rounded">
+                    <div className="text-sm bg-neutral-700/50 p-2 rounded">
                       <span className="font-semibold">Size comparison: </span>
                       Original: {formatFileSize(videoInfo.fileSize)} → New:{" "}
                       {formatFileSize(processedSize)}(
@@ -431,24 +454,24 @@ export default function Home() {
       </section>
 
       {/* Features Section */}
-      <section id="features" className="py-20 px-4 bg-gray-900">
+      <section id="features" className="py-20 px-4 bg-neutral-900">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
-            <span className="inline-block px-3 py-1 text-sm font-medium rounded-full bg-teal-900 text-teal-300 mb-4">
+            <span className="inline-block px-3 py-1 text-sm font-medium rounded-full bg-neutral-700 text-neutral-200 mb-4">
               Why Choose Us
             </span>
             <h2 className="text-4xl md:text-5xl font-bold mb-4">
               Powerful Features
             </h2>
-            <p className="text-xl text-gray-400">
+            <p className="text-xl text-neutral-400">
               Everything you need to upscale videos quickly and easily
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             {/* Feature 1 */}
-            <div className="bg-gray-800 rounded-lg p-6">
-              <div className="w-14 h-14 bg-teal-900/50 rounded-full flex items-center justify-center mb-6 text-teal-300">
+            <div className="bg-neutral-800 rounded-lg p-6">
+              <div className="w-14 h-14 bg-neutral-700/50 rounded-full flex items-center justify-center mb-6 text-neutral-200">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   className="h-7 w-7"
@@ -465,15 +488,15 @@ export default function Home() {
                 </svg>
               </div>
               <h3 className="text-xl font-bold mb-3">100% Free</h3>
-              <p className="text-gray-400">
-                No hidden fees, subscriptions, or limits. Upscale unlimited
-                videos without paying a cent.
+              <p className="text-neutral-400">
+                No hidden fees or subscriptions. Resize videos locally within
+                your browser&apos;s processing limits.
               </p>
             </div>
 
             {/* Feature 2 */}
-            <div className="bg-gray-800 rounded-lg p-6">
-              <div className="w-14 h-14 bg-teal-900/50 rounded-full flex items-center justify-center mb-6 text-teal-300">
+            <div className="bg-neutral-800 rounded-lg p-6">
+              <div className="w-14 h-14 bg-neutral-700/50 rounded-full flex items-center justify-center mb-6 text-neutral-200">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   className="h-7 w-7"
@@ -490,15 +513,15 @@ export default function Home() {
                 </svg>
               </div>
               <h3 className="text-xl font-bold mb-3">Private & Secure</h3>
-              <p className="text-gray-400">
+              <p className="text-neutral-400">
                 Your videos never leave your device. All processing happens
                 right in your browser.
               </p>
             </div>
 
             {/* Feature 3 */}
-            <div className="bg-gray-800 rounded-lg p-6">
-              <div className="w-14 h-14 bg-teal-900/50 rounded-full flex items-center justify-center mb-6 text-teal-300">
+            <div className="bg-neutral-800 rounded-lg p-6">
+              <div className="w-14 h-14 bg-neutral-700/50 rounded-full flex items-center justify-center mb-6 text-neutral-200">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   className="h-7 w-7"
@@ -515,15 +538,15 @@ export default function Home() {
                 </svg>
               </div>
               <h3 className="text-xl font-bold mb-3">Higher Resolution</h3>
-              <p className="text-gray-400">
+              <p className="text-neutral-400">
                 Canvas scaling increases the output dimensions while keeping
                 the original aspect ratio. It cannot restore missing detail.
               </p>
             </div>
 
             {/* Feature 4 */}
-            <div className="bg-gray-800 rounded-lg p-6">
-              <div className="w-14 h-14 bg-teal-900/50 rounded-full flex items-center justify-center mb-6 text-teal-300">
+            <div className="bg-neutral-800 rounded-lg p-6">
+              <div className="w-14 h-14 bg-neutral-700/50 rounded-full flex items-center justify-center mb-6 text-neutral-200">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   className="h-7 w-7"
@@ -540,7 +563,7 @@ export default function Home() {
                 </svg>
               </div>
               <h3 className="text-xl font-bold mb-3">Easy to Use</h3>
-              <p className="text-gray-400">
+              <p className="text-neutral-400">
                 Simple interface with preview lets you upscale videos in just a
                 few clicks.
               </p>
@@ -550,16 +573,16 @@ export default function Home() {
       </section>
 
       {/* How It Works Section */}
-      <section id="how" className="py-20 px-4 bg-gray-950">
+      <section id="how" className="py-20 px-4 bg-neutral-950">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
-            <span className="inline-block px-3 py-1 text-sm font-medium rounded-full bg-teal-900 text-teal-300 mb-4">
+            <span className="inline-block px-3 py-1 text-sm font-medium rounded-full bg-neutral-700 text-neutral-200 mb-4">
               Simple Process
             </span>
             <h2 className="text-4xl md:text-5xl font-bold mb-4">
               How It Works
             </h2>
-            <p className="text-xl text-gray-400">
+            <p className="text-xl text-neutral-400">
               Upscale your videos in three simple steps
             </p>
           </div>
@@ -568,15 +591,15 @@ export default function Home() {
             {/* Step 1 */}
             <div className="relative">
               <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                <div className="w-10 h-10 flex items-center justify-center bg-teal-500 text-white rounded-full">
+                <div className="w-10 h-10 flex items-center justify-center bg-neutral-600 text-white rounded-full">
                   1
                 </div>
               </div>
-              <div className="bg-gray-800 rounded-lg p-8 pt-10">
+              <div className="bg-neutral-800 rounded-lg p-8 pt-10">
                 <div className="flex justify-center mb-6">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    className="h-12 w-12 text-teal-300"
+                    className="h-12 w-12 text-neutral-200"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -592,7 +615,7 @@ export default function Home() {
                 <h3 className="text-xl font-bold text-center mb-3">
                   Upload Video
                 </h3>
-                <p className="text-gray-400 text-center">
+                <p className="text-neutral-400 text-center">
                   Select a video from your device to begin the upscaling process
                 </p>
               </div>
@@ -601,15 +624,15 @@ export default function Home() {
             {/* Step 2 */}
             <div className="relative">
               <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                <div className="w-10 h-10 flex items-center justify-center bg-teal-500 text-white rounded-full">
+                <div className="w-10 h-10 flex items-center justify-center bg-neutral-600 text-white rounded-full">
                   2
                 </div>
               </div>
-              <div className="bg-gray-800 rounded-lg p-8 pt-10">
+              <div className="bg-neutral-800 rounded-lg p-8 pt-10">
                 <div className="flex justify-center mb-6">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    className="h-12 w-12 text-teal-300"
+                    className="h-12 w-12 text-neutral-200"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -631,7 +654,7 @@ export default function Home() {
                 <h3 className="text-xl font-bold text-center mb-3">
                   Choose Settings
                 </h3>
-                <p className="text-gray-400 text-center">
+                <p className="text-neutral-400 text-center">
                   Select your desired resolution, bitrate, and format
                 </p>
               </div>
@@ -640,15 +663,15 @@ export default function Home() {
             {/* Step 3 */}
             <div className="relative">
               <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                <div className="w-10 h-10 flex items-center justify-center bg-teal-500 text-white rounded-full">
+                <div className="w-10 h-10 flex items-center justify-center bg-neutral-600 text-white rounded-full">
                   3
                 </div>
               </div>
-              <div className="bg-gray-800 rounded-lg p-8 pt-10">
+              <div className="bg-neutral-800 rounded-lg p-8 pt-10">
                 <div className="flex justify-center mb-6">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    className="h-12 w-12 text-teal-300"
+                    className="h-12 w-12 text-neutral-200"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -662,7 +685,7 @@ export default function Home() {
                   </svg>
                 </div>
                 <h3 className="text-xl font-bold text-center mb-3">Download</h3>
-                <p className="text-gray-400 text-center">
+                <p className="text-neutral-400 text-center">
                   Download the resized video in your selected format
                 </p>
               </div>
@@ -672,7 +695,7 @@ export default function Home() {
           <div className="flex justify-center mt-12">
             <button
               onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-              className="bg-teal-500 hover:bg-teal-600 text-white font-medium py-3 px-8 rounded-full transition-colors text-lg"
+              className="bg-neutral-600 hover:bg-neutral-600 text-white font-medium py-3 px-8 rounded-full transition-colors text-lg"
             >
               Try It Now
             </button>
@@ -681,21 +704,21 @@ export default function Home() {
       </section>
 
       {/* FAQ Section */}
-      <section id="faq" className="py-20 px-4 bg-gray-950">
+      <section id="faq" className="py-20 px-4 bg-neutral-950">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-16">
-            <span className="inline-block px-3 py-1 text-sm font-medium rounded-full bg-teal-900 text-teal-300 mb-4">
+            <span className="inline-block px-3 py-1 text-sm font-medium rounded-full bg-neutral-700 text-neutral-200 mb-4">
               Got Questions?
             </span>
             <h2 className="text-4xl md:text-5xl font-bold mb-4">
               Frequently Asked Questions
             </h2>
-            <p className="text-xl text-gray-400">
+            <p className="text-xl text-neutral-400">
               Find answers to common questions about our video upscaler
             </p>
           </div>
 
-          <div className="bg-gray-800 rounded-lg divide-y divide-gray-700">
+          <div className="bg-neutral-800 rounded-lg divide-y divide-neutral-700">
             {/* Question 1 */}
             <details className="p-6 group">
               <summary className="flex justify-between items-center cursor-pointer">
@@ -719,10 +742,9 @@ export default function Home() {
                   </svg>
                 </span>
               </summary>
-              <p className="mt-4 text-gray-400">
-                Yes, our video upscaler is 100% free with no hidden fees or
-                subscription requirements. There are no limits on the number or
-                size of videos you can upscale.
+              <p className="mt-4 text-neutral-400">
+                Yes, our video upscaler is free with no subscription. Each video
+                must fit the browser processing limits shown above.
               </p>
             </details>
 
@@ -749,7 +771,7 @@ export default function Home() {
                   </svg>
                 </span>
               </summary>
-              <p className="mt-4 text-gray-400">
+              <p className="mt-4 text-neutral-400">
                 Our upscaler uses the Canvas API to process each frame of your
                 video at a higher resolution. The MediaRecorder API then
                 captures this output to create your new upscaled video. All
@@ -780,7 +802,7 @@ export default function Home() {
                   </svg>
                 </span>
               </summary>
-              <p className="mt-4 text-gray-400">
+              <p className="mt-4 text-neutral-400">
                 You can input most common video formats that your browser
                 supports (MP4, WebM, MOV, etc.). Upscaled videos can be
                 downloaded in WebM or MP4 format.
@@ -810,11 +832,10 @@ export default function Home() {
                   </svg>
                 </span>
               </summary>
-              <p className="mt-4 text-gray-400">
-                There&apos;s no hard limit, but browser processing is more
-                suitable for shorter videos. We recommend videos under 10
-                minutes for the best experience. Larger videos might take longer
-                to process and use more system resources.
+              <p className="mt-4 text-neutral-400">
+                The limit is 256 MB for MP4 input and estimated output, or 512 MB
+                for WebM. Shorter videos are more reliable, especially at high
+                resolutions.
               </p>
             </details>
           </div>
@@ -822,27 +843,27 @@ export default function Home() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-gray-900 py-4 border-t border-gray-800">
+      <footer className="bg-neutral-900 py-4 border-t border-neutral-800">
         <div className="max-w-6xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center">
-          <div className="text-gray-400 text-sm mb-3 md:mb-0">
+          <div className="text-neutral-400 text-sm mb-3 md:mb-0">
             &copy; 2025 Application. All rights reserved.
           </div>
           <div className="flex gap-6 text-sm">
             <Link
               href="/terms"
-              className="text-gray-400 hover:text-teal-300 transition-colors"
+              className="text-neutral-400 hover:text-neutral-200 transition-colors"
             >
               Terms of Service
             </Link>
             <Link
               href="/privacy"
-              className="text-gray-400 hover:text-teal-300 transition-colors"
+              className="text-neutral-400 hover:text-neutral-200 transition-colors"
             >
               Privacy Policy
             </Link>
             <Link
               href="/contact"
-              className="text-gray-400 hover:text-teal-300 transition-colors"
+              className="text-neutral-400 hover:text-neutral-200 transition-colors"
             >
               Contact
             </Link>
@@ -853,16 +874,16 @@ export default function Home() {
       {/* Redownload Confirmation Modal */}
       {showRedownloadModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
+          <div className="bg-neutral-800 rounded-lg p-6 max-w-md w-full mx-4">
             <h3 className="text-xl font-semibold mb-4">Redownload Video?</h3>
-            <p className="text-gray-300 mb-6">
+            <p className="text-neutral-300 mb-6">
               You&apos;ve already downloaded this video. Would you like to
               download it again?
             </p>
             <div className="flex justify-end space-x-4">
               <button
                 onClick={() => setShowRedownloadModal(false)}
-                className="px-4 py-2 rounded bg-gray-600 hover:bg-gray-700 transition-colors"
+                className="px-4 py-2 rounded bg-neutral-600 hover:bg-neutral-700 transition-colors"
               >
                 No, Cancel
               </button>
@@ -871,7 +892,7 @@ export default function Home() {
                   setShowRedownloadModal(false);
                   downloadVideo();
                 }}
-                className="px-4 py-2 rounded bg-teal-600 hover:bg-teal-700 transition-colors"
+                className="px-4 py-2 rounded bg-neutral-600 hover:bg-neutral-500 transition-colors"
               >
                 Yes, Download Again
               </button>

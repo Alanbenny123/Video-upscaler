@@ -16,6 +16,17 @@ interface UpscaleOptions {
   format?: "webm" | "mp4"; // mp4 support via ffmpeg.wasm
 }
 
+export type ProcessingStage = "recording" | "converting";
+
+export function getProcessingLimits(format: "webm" | "mp4") {
+  const maxBytes = (format === "mp4" ? 256 : 512) * 1024 * 1024;
+  return { maxInputBytes: maxBytes, maxOutputBytes: maxBytes };
+}
+
+export function estimateOutputSize(duration: number, bitrate: number): number {
+  return Math.ceil((duration * (bitrate * 1_000_000 + 192_000)) / 8);
+}
+
 export function getOutputDimensions(
   sourceWidth: number,
   sourceHeight: number,
@@ -75,12 +86,18 @@ export function formatFileSize(bytes: number): string {
 export async function upscaleVideo(
   file: File,
   options: UpscaleOptions,
-  onProgress: (progress: number) => void,
+  onProgress: (progress: number, stage: ProcessingStage) => void,
   abortSignal?: AbortSignal
 ): Promise<{ blob: Blob; fileSize: number }> {
   return new Promise((resolve, reject) => {
     if (abortSignal?.aborted) {
       reject(new Error("Operation cancelled"));
+      return;
+    }
+
+    const limits = getProcessingLimits(options.format ?? "webm");
+    if (file.size > limits.maxInputBytes) {
+      reject(new Error("Input video exceeds this browser processing limit"));
       return;
     }
 
@@ -92,6 +109,17 @@ export async function upscaleVideo(
     let mediaRecorder: MediaRecorder | null = null;
     let videoStream: MediaStream | null = null;
     let sourceStream: MediaStream | null = null;
+    let audioContext: AudioContext | null = null;
+    if (typeof AudioContext !== "undefined") {
+      try {
+        audioContext = new AudioContext();
+        // Resume while this call is still part of the user's button click.
+        void audioContext.resume().catch(() => {});
+      } catch {
+        // A missing audio track will produce a clear error below.
+      }
+    }
+    let audioSource: MediaElementAudioSourceNode | null = null;
     let ffmpeg: FFmpegInstance | null = null;
     let frameId: number | null = null;
     let usingVideoFrameCallback = false;
@@ -111,6 +139,10 @@ export async function upscaleVideo(
     const stopStreams = () => {
       videoStream?.getTracks().forEach((track) => track.stop());
       sourceStream?.getTracks().forEach((track) => track.stop());
+      audioSource?.disconnect();
+      audioSource = null;
+      if (audioContext) void audioContext.close().catch(() => {});
+      audioContext = null;
       videoStream = null;
       sourceStream = null;
     };
@@ -143,6 +175,7 @@ export async function upscaleVideo(
       settled = true;
       cleanup();
       stopFFmpeg();
+      onProgress(100, options.format === "mp4" ? "converting" : "recording");
       resolve(result);
     };
 
@@ -181,7 +214,9 @@ export async function upscaleVideo(
 
     const scheduleFrame = () => {
       if (settled || pausedForVisibility || sourceVideo.ended) return;
-      if ("requestVideoFrameCallback" in sourceVideo) {
+      const supportsVideoFrameCallback =
+        typeof sourceVideo.requestVideoFrameCallback === "function";
+      if (supportsVideoFrameCallback) {
         usingVideoFrameCallback = true;
         frameId = sourceVideo.requestVideoFrameCallback((_now, metadata) => {
           drawFrame(metadata.mediaTime);
@@ -205,7 +240,10 @@ export async function upscaleVideo(
           );
           if (progress > lastProgress) {
             lastProgress = progress;
-            onProgress(progress);
+            onProgress(
+              options.format === "mp4" ? Math.floor(progress * 0.8) : progress,
+              "recording"
+            );
           }
         }
         scheduleFrame();
@@ -221,7 +259,7 @@ export async function upscaleVideo(
 
     abortSignal?.addEventListener("abort", handleAbort, { once: true });
 
-    sourceVideo.onloadedmetadata = () => {
+    sourceVideo.onloadedmetadata = async () => {
       if (settled) return;
       try {
         const dimensions = getOutputDimensions(
@@ -229,6 +267,12 @@ export async function upscaleVideo(
           sourceVideo.videoHeight,
           options.resolution
         );
+        if (
+          estimateOutputSize(sourceVideo.duration, options.bitrate) >
+          limits.maxOutputBytes
+        ) {
+          throw new Error("Estimated output exceeds this browser processing limit");
+        }
         canvas.width = dimensions.width;
         canvas.height = dimensions.height;
         videoStream = canvas.captureStream();
@@ -237,8 +281,27 @@ export async function upscaleVideo(
           sourceVideo as HTMLVideoElement & { captureStream?: () => MediaStream }
         ).captureStream?.() ?? null;
         const audioTrack = sourceStream?.getAudioTracks()[0];
-
-        if (audioTrack) videoStream.addTrack(audioTrack);
+        if (audioTrack) {
+          videoStream.addTrack(audioTrack);
+        } else {
+          if (!audioContext) {
+            throw new Error("This browser cannot capture video audio");
+          }
+          audioSource = audioContext.createMediaElementSource(sourceVideo);
+          const destination = audioContext.createMediaStreamDestination();
+          audioSource.connect(destination);
+          const routedTrack = destination.stream.getAudioTracks()[0];
+          if (!routedTrack) {
+            throw new Error("This browser cannot capture video audio");
+          }
+          videoStream.addTrack(routedTrack);
+          sourceVideo.muted = false;
+          await audioContext.resume();
+          if (settled) return;
+          if (audioContext.state !== "running") {
+            throw new Error("This browser could not start audio capture");
+          }
+        }
 
         const mimeType = [
           "video/webm;codecs=vp9,opus",
@@ -255,9 +318,16 @@ export async function upscaleVideo(
         });
 
         const chunks: Blob[] = [];
+        let recordedBytes = 0;
 
         mediaRecorder.ondataavailable = (e) => {
-          if (e.data.size > 0) chunks.push(e.data);
+          if (settled || e.data.size === 0) return;
+          recordedBytes += e.data.size;
+          if (recordedBytes > limits.maxOutputBytes) {
+            fail(new Error("Recorded video exceeds this browser processing limit"));
+            return;
+          }
+          chunks.push(e.data);
         };
 
         mediaRecorder.onerror = () => fail(new Error("Error during recording"));
@@ -274,12 +344,26 @@ export async function upscaleVideo(
           }
 
           if (options.format === "mp4") {
+            onProgress(80, "converting");
             (async () => {
               const { createFFmpeg, fetchFile }: FFmpegModule = await import(
                 "@ffmpeg/ffmpeg"
               );
               if (settled) return;
               ffmpeg = createFFmpeg({ log: false });
+              let conversionProgress = 80;
+              ffmpeg.setProgress(({ ratio }) => {
+                if (!settled && Number.isFinite(ratio)) {
+                  conversionProgress = Math.max(
+                    conversionProgress,
+                    Math.min(99, 80 + Math.floor(Math.max(0, ratio) * 19))
+                  );
+                  onProgress(
+                    conversionProgress,
+                    "converting"
+                  );
+                }
+              });
               await ffmpeg.load();
               if (settled) return;
 
@@ -309,6 +393,9 @@ export async function upscaleVideo(
               if (mp4Blob.size === 0) {
                 throw new Error("MP4 conversion produced an empty video");
               }
+              if (mp4Blob.size > limits.maxOutputBytes) {
+                throw new Error("MP4 output exceeds this browser processing limit");
+              }
               finish({ blob: mp4Blob, fileSize: mp4Blob.size });
             })().catch((err) => {
               fail(new Error("MP4 conversion failed", { cause: err }));
@@ -335,11 +422,9 @@ export async function upscaleVideo(
           .catch(() => fail(new Error("Failed to play source video")));
       } catch (error) {
         fail(
-          error instanceof Error && error.message === "This browser cannot record WebM video"
+          error instanceof Error
             ? error
-            : new Error(
-                "Failed to initialize video recording. Your browser may not support the required codecs."
-              )
+            : new Error("Failed to initialize video recording")
         );
       }
     };

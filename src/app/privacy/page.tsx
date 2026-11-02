@@ -3,16 +3,16 @@ import Link from "next/link";
 
 export default function PrivacyPolicy() {
   return (
-    <div className="min-h-screen bg-gray-900 text-white flex flex-col">
+    <div className="min-h-screen bg-neutral-900 text-white flex flex-col">
       <Header />
 
       <div className="flex-grow">
         <div className="max-w-4xl mx-auto py-16 px-4">
           <h1 className="text-4xl font-bold mb-8">Privacy Policy</h1>
 
-          <div className="space-y-8 text-gray-300">
+          <div className="space-y-8 text-neutral-300">
             <section>
-              <h2 className="text-2xl font-semibold mb-4 text-teal-300">
+              <h2 className="text-2xl font-semibold mb-4 text-neutral-200">
                 1. Introduction
               </h2>
               <p className="mb-4">
@@ -28,7 +28,7 @@ export default function PrivacyPolicy() {
             </section>
 
             <section>
-              <h2 className="text-2xl font-semibold mb-4 text-teal-300">
+              <h2 className="text-2xl font-semibold mb-4 text-neutral-200">
                 2. Information We Don&apos;t Collect
               </h2>
               <p className="mb-4">
@@ -44,7 +44,7 @@ export default function PrivacyPolicy() {
             </section>
 
             <section>
-              <h2 className="text-2xl font-semibold mb-4 text-teal-300">
+              <h2 className="text-2xl font-semibold mb-4 text-neutral-200">
                 3. Anonymous Usage Data
               </h2>
               <p className="mb-4">
@@ -69,7 +69,7 @@ export default function PrivacyPolicy() {
             </section>
 
             <section>
-              <h2 className="text-2xl font-semibold mb-4 text-teal-300">
+              <h2 className="text-2xl font-semibold mb-4 text-neutral-200">
                 4. Cookies
               </h2>
               <p className="mb-4">
@@ -92,7 +92,7 @@ export default function PrivacyPolicy() {
             </section>
 
             <section>
-              <h2 className="text-2xl font-semibold mb-4 text-teal-300">
+              <h2 className="text-2xl font-semibold mb-4 text-neutral-200">
                 5. Third-Party Services
               </h2>
               <p className="mb-4">
@@ -109,7 +109,7 @@ export default function PrivacyPolicy() {
             </section>
 
             <section>
-              <h2 className="text-2xl font-semibold mb-4 text-teal-300">
+              <h2 className="text-2xl font-semibold mb-4 text-neutral-200">
                 6. Data Security
               </h2>
               <p className="mb-4">
@@ -127,7 +127,7 @@ export default function PrivacyPolicy() {
             </section>
 
             <section>
-              <h2 className="text-2xl font-semibold mb-4 text-teal-300">
+              <h2 className="text-2xl font-semibold mb-4 text-neutral-200">
                 7. Changes to This Privacy Policy
               </h2>
               <p className="mb-4">
@@ -143,7 +143,7 @@ export default function PrivacyPolicy() {
             </section>
 
             <section>
-              <h2 className="text-2xl font-semibold mb-4 text-teal-300">
+              <h2 className="text-2xl font-semibold mb-4 text-neutral-200">
                 8. Contact Us
               </h2>
               <p>
@@ -156,7 +156,7 @@ export default function PrivacyPolicy() {
           <div className="mt-12 text-center">
             <Link
               href="/"
-              className="inline-block bg-teal-600 hover:bg-teal-700 text-white font-medium py-2 px-6 rounded-md transition-colors"
+              className="inline-block bg-neutral-600 hover:bg-neutral-500 text-white font-medium py-2 px-6 rounded-md transition-colors"
             >
               Return to Home
             </Link>
@@ -165,27 +165,27 @@ export default function PrivacyPolicy() {
       </div>
 
       {/* Footer */}
-      <footer className="bg-gray-900 py-4 border-t border-gray-800">
+      <footer className="bg-neutral-900 py-4 border-t border-neutral-800">
         <div className="max-w-6xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center">
-          <div className="text-gray-400 text-sm mb-3 md:mb-0">
+          <div className="text-neutral-400 text-sm mb-3 md:mb-0">
             &copy; 2025 Application. All rights reserved.
           </div>
           <div className="flex gap-6 text-sm">
             <Link
               href="/terms"
-              className="text-gray-400 hover:text-teal-300 transition-colors"
+              className="text-neutral-400 hover:text-neutral-200 transition-colors"
             >
               Terms of Service
             </Link>
             <Link
               href="/privacy"
-              className="text-gray-400 hover:text-teal-300 transition-colors"
+              className="text-neutral-400 hover:text-neutral-200 transition-colors"
             >
               Privacy Policy
             </Link>
             <Link
               href="/contact"
-              className="text-gray-400 hover:text-teal-300 transition-colors"
+              className="text-neutral-400 hover:text-neutral-200 transition-colors"
             >
               Contact
             </Link>

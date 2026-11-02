@@ -12,21 +12,12 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  // Initialize with dark mode (will be updated in useEffect)
-  const [theme, setTheme] = useState<Theme>("dark");
-
-  // Initialize theme from localStorage when component mounts
-  useEffect(() => {
-    const savedTheme = localStorage.getItem("theme") as Theme;
-    const systemPreference = window.matchMedia("(prefers-color-scheme: dark)")
-      .matches
-      ? "dark"
-      : "light";
-
-    // Use saved theme or system preference
-    const initialTheme = savedTheme || systemPreference;
-    setTheme(initialTheme);
-  }, []);
+  // ThemeProvider mounts after ThemeWrapper has loaded the saved preference.
+  const [theme, setTheme] = useState<Theme>(() =>
+    typeof window !== "undefined" && localStorage.getItem("theme") === "light"
+      ? "light"
+      : "dark"
+  );
 
   // Apply theme changes to document
   useEffect(() => {

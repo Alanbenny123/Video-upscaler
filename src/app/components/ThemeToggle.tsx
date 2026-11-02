@@ -17,7 +17,7 @@ export default function ThemeToggle() {
           xmlns="http://www.w3.org/2000/svg"
           viewBox="0 0 24 24"
           fill="currentColor"
-          className={`w-5 h-5 text-yellow-300 absolute transition-transform duration-500 ${
+          className={`w-5 h-5 text-neutral-200 absolute transition-transform duration-500 ${
             theme === "dark" ? "scale-100 rotate-0" : "scale-0 rotate-90"
           }`}
         >
@@ -29,7 +29,7 @@ export default function ThemeToggle() {
           xmlns="http://www.w3.org/2000/svg"
           viewBox="0 0 24 24"
           fill="currentColor"
-          className={`w-5 h-5 text-gray-700 absolute transition-transform duration-500 ${
+          className={`w-5 h-5 text-neutral-700 absolute transition-transform duration-500 ${
             theme === "light" ? "scale-100 rotate-0" : "scale-0 rotate-90"
           }`}
         >

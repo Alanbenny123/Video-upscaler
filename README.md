@@ -12,6 +12,7 @@ A web application that resizes videos to various output resolutions (480p to 8K)
 - Real-time progress tracking during upscaling
 - Compare original and processed file sizes
 - Download the resized video in WebM or MP4 format (MP4 requires browser-side FFmpeg conversion)
+- Browser processing limits: 256 MB input and estimated output for MP4, 512 MB for WebM
 
 ## Technology
 
